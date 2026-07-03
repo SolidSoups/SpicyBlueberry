@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{10370F5F-4426-38D1-9FE8-C4BE9EEC7C94}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "SpicyBlueb",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}
