@@ -6,9 +6,6 @@
 #include "GameFramework/GameModeBase.h"
 #include "PZ_GameModeBase.generated.h"
 
-class APZ_PlayerController;
-class APZ_PlayerCharacter;
-
 /**
  * 
  */
