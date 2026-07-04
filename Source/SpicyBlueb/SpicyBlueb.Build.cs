@@ -7,8 +7,8 @@ public class SpicyBlueb : ModuleRules
 	public SpicyBlueb(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG" });
+
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "PCG", "PhysicsControl", "PhysicsControlUncookedOnly", "PhysicsControlEditor" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore", "Slate", "SlateCore"  });
 
