@@ -11,6 +11,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
+class APZ_Shovel;
 
 UCLASS()
 class SPICYBLUEB_API APZ_PlayerCharacter : public ACharacter
@@ -74,13 +75,23 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
 	bool bDebug = false;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	TSubclassOf<APZ_Shovel> ShovelClass;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	TObjectPtr<APZ_Shovel> EquippedShovel;
+	
 private:
+	void SpawnAndAttachShovel();	
+	
 	// Helpers
 	void UpdateMouseFacing();
 	void ApplyFacing(float DeltaTime);
 	
 	UPROPERTY(Replicated)
 	float RepFacingYaw = 0.f;
+	
+	const FName HandSocketName = TEXT("HandGrip_R");
 	
 	UFUNCTION(Server, Unreliable)
 	void Server_SetFacingYaw(float NewYaw);

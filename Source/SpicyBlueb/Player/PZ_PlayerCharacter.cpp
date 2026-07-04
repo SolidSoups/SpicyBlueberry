@@ -7,11 +7,14 @@
 #include "EnhancedInputSubsystems.h"
 #include "PZ_PlayerController.h"
 #include "Camera/CameraComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
+#include "SpicyBlueb/Weapons/PZ_Shovel.h"
 
 
 APZ_PlayerCharacter::APZ_PlayerCharacter()
@@ -51,6 +54,7 @@ void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	AddInputMapping();
+	SpawnAndAttachShovel();
 }
 
 void APZ_PlayerCharacter::Tick(float DeltaTime)
@@ -124,6 +128,23 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 	const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 
 	DesiredFacing = (Forward * Stick.Y + Right * Stick.X).GetSafeNormal();
+}
+
+void APZ_PlayerCharacter::SpawnAndAttachShovel()
+{
+	if (!ShovelClass) return;	
+	
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	EquippedShovel = GetWorld()->SpawnActor<APZ_Shovel>(ShovelClass, GetActorTransform(), Params);
+	
+	if (EquippedShovel)
+	{
+		EquippedShovel->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			HandSocketName);
+	}
 }
 
 void APZ_PlayerCharacter::UpdateMouseFacing()
