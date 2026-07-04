@@ -14,11 +14,6 @@ APZ_CityGenerator::APZ_CityGenerator()
 
 	PCG = CreateDefaultSubobject<UPCGComponent>(TEXT("PCG"));
 	PCG->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
-	
-	USplineComponent* Spline = NewObject<USplineComponent>(this);
-	Spline->SetupAttachment(GetRootComponent());
-	Spline->ComponentTags.Add(FName("PZ_Roads"));
-	Spline->RegisterComponent();
 }
 
 void APZ_CityGenerator::Regenerate(int32 NewSeed)
@@ -313,6 +308,7 @@ void APZ_CityGenerator::BuildRoadSplines(const TArray<FVector2D>& Points, const 
 
 		USplineComponent* Spline = NewObject<USplineComponent>(this);
 		Spline->SetupAttachment(GetRootComponent());
+		Spline->ComponentTags.Add(FName("PZ_Roads"));
 		Spline->RegisterComponent();
 		Spline->SetMobility(EComponentMobility::Movable);
 		Spline->ClearSplinePoints(false);
