@@ -26,6 +26,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void PlayAttackMontage();
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void SetWeaponCollisionEnabled(bool IsEnabled);
 
 protected:
 	virtual void BeginPlay() override;

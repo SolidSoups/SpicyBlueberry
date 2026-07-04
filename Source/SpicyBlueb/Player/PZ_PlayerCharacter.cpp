@@ -66,6 +66,12 @@ void APZ_PlayerCharacter::PlayAttackMontage()
 	}
 }
 
+void APZ_PlayerCharacter::SetWeaponCollisionEnabled(bool IsEnabled)
+{
+	if (!HasAuthority()) return;
+	if (EquippedShovel) EquippedShovel->SetBladeCollisionEnabled(IsEnabled);
+}
+
 void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
