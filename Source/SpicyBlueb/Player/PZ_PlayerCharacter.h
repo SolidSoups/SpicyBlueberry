@@ -22,6 +22,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
@@ -42,6 +43,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AimAction;
+	
+	// Feel
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Camera")
 	float CameraHeight = 1500.f;
 	
@@ -51,10 +56,26 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Camera")
 	float CameraYaw = 45.f;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Aim")
+	float AimRotationSpeed = 720.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Aim")
+	float GamepadAimDeadzone = 0.25f;
+	
 	// Input handlers
 	void Move(const FInputActionValue& Value);
+	void Aim(const FInputActionValue& Value);
+	
 	void AddInputMapping();
 	
-private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
+	bool bDebug = false;
 	
+private:
+	FVector DesiredFacing = FVector::ForwardVector;
+	bool bUsingGamepadAim = false;
+	
+	// Helpers
+	void UpdateMouseFacing();
+	void ApplyFacing(float DeltaTime);
 };

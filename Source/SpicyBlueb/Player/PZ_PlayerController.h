@@ -13,4 +13,7 @@ UCLASS()
 class SPICYBLUEB_API APZ_PlayerController : public APlayerController
 {
 	GENERATED_BODY()
+	
+protected:
+	virtual void BeginPlay() override;
 };
