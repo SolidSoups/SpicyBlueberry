@@ -11,6 +11,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
+class UAnimMontage;
 class APZ_Shovel;
 
 UCLASS()
@@ -22,6 +23,9 @@ private:
 public:
 	APZ_PlayerCharacter();
 	virtual void OnConstruction(const FTransform& Transform) override;
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void PlayAttackMontage();
 
 protected:
 	virtual void BeginPlay() override;
@@ -33,8 +37,10 @@ protected:
 	// Input handlers
 	void Move(const FInputActionValue& Value);
 	void Aim(const FInputActionValue& Value);
+	void DoAttack();
 	
 	void AddInputMapping();
+	
 	
 	// Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -56,6 +62,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AimAction;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AttackAction;
+	
 	// Feel
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Camera")
 	float CameraHeight = 1500.f;
@@ -75,11 +84,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
 	bool bDebug = false;
 	
+	// Weapon
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TSubclassOf<APZ_Shovel> ShovelClass;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<APZ_Shovel> EquippedShovel;
+	
+	// Animation
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	TObjectPtr<UAnimMontage> AttackMontage;
 	
 private:
 	void SpawnAndAttachShovel();	
@@ -91,10 +105,22 @@ private:
 	UPROPERTY(Replicated)
 	float RepFacingYaw = 0.f;
 	
+	// Attack trigger is incremented by server when a character attacks. When a client or proxy
+	// receives a notify, they compare against their copy to detect new attacks:
+	UPROPERTY(Replicated, ReplicatedUsing=OnRep_AttackTrigger)
+	uint8 RepAttackTrigger = 0;
+	
+	UFUNCTION()
+	void OnRep_AttackTrigger();
+	
+	
 	const FName HandSocketName = TEXT("HandGrip_R");
 	
 	UFUNCTION(Server, Unreliable)
 	void Server_SetFacingYaw(float NewYaw);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_DoAttack();
 	
 	FVector DesiredFacing = FVector::ForwardVector;
 	bool bUsingGamepadAim = false;

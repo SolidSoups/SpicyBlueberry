@@ -43,11 +43,27 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 void APZ_PlayerCharacter::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	
+
 	// OnConstruct runs during editor runtime, so we need to change socket
 	// settings here
 	SpringArm->TargetArmLength = CameraHeight;
 	SpringArm->SetRelativeRotation(FRotator(CameraPitch, CameraYaw, 0.f));
+}
+
+void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(APZ_PlayerCharacter, RepFacingYaw, COND_SkipOwner)
+	DOREPLIFETIME_CONDITION(APZ_PlayerCharacter, RepAttackTrigger, COND_SkipOwner);
+}
+
+void APZ_PlayerCharacter::PlayAttackMontage()
+{
+	if (AttackMontage)
+	{
+		PlayAnimMontage(AttackMontage);
+	}
 }
 
 void APZ_PlayerCharacter::BeginPlay()
@@ -89,15 +105,10 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
+	if (AttackAction)
+		EIC->BindAction(AttackAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::DoAttack);
 }
 
-void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	// [Elias Brown]: Question, what is this macro, how does it control replication?
-	// What does COND_SkipOwner do exactly?
-	DOREPLIFETIME_CONDITION(APZ_PlayerCharacter, RepFacingYaw, COND_SkipOwner)
-}
 
 void APZ_PlayerCharacter::Move(const FInputActionValue& Value)
 {
@@ -130,14 +141,30 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 	DesiredFacing = (Forward * Stick.Y + Right * Stick.X).GetSafeNormal();
 }
 
+void APZ_PlayerCharacter::DoAttack()
+{
+	PlayAttackMontage();
+	
+	if (HasAuthority())
+	{
+		RepAttackTrigger++;
+		MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepAttackTrigger, this);
+	}
+	else
+	{
+		Server_DoAttack();
+	}
+}
+
+
 void APZ_PlayerCharacter::SpawnAndAttachShovel()
 {
-	if (!ShovelClass) return;	
-	
+	if (!ShovelClass) return;
+
 	FActorSpawnParameters Params;
 	Params.Owner = this;
 	EquippedShovel = GetWorld()->SpawnActor<APZ_Shovel>(ShovelClass, GetActorTransform(), Params);
-	
+
 	if (EquippedShovel)
 	{
 		EquippedShovel->AttachToComponent(
@@ -201,9 +228,22 @@ void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 	{
 		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
 	}
-	
+
 	// Purely simulated proxies (not owner, not server) do nothing here.
 	// ACharacter already replicated and smooths rotation
+}
+
+void APZ_PlayerCharacter::OnRep_AttackTrigger()
+{
+	PlayAttackMontage();
+}
+
+void APZ_PlayerCharacter::Server_DoAttack_Implementation()
+{
+	PlayAttackMontage();	
+	
+	RepAttackTrigger++;
+	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepAttackTrigger, this);
 }
 
 void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
