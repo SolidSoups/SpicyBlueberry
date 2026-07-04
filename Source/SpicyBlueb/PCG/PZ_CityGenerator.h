@@ -5,6 +5,7 @@
 #include "PZ_CityGenerator.generated.h"
 
 class UPCGComponent;
+class USplineComponent;
 
 USTRUCT()
 struct FPZ_Block
@@ -45,6 +46,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "City|Roads")
 	float RoadHalfWidth = 150.f;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "City|Debug")
+	bool bDrawDebug = false;
+
 	// Buttons
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "City|Seed")
 	void Regenerate(int32 NewSeed);
@@ -54,7 +58,6 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "City|Seed")
 	void RandomizeSeedAndRegenerate();
 
-
 protected:
 	virtual void BeginPlay() override;
 	
@@ -63,6 +66,10 @@ protected:
 	
 	TArray<FPZ_Block> Blocks;
 	
+	// One spline per road segment (Voronoi edge). PCG reads these via Get Spline Data.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "City")
+	TArray<USplineComponent*> RoadSplines;
+
 private:
 	void RunGeneration();
 
@@ -70,6 +77,7 @@ private:
 	void ScatterPoints(FRandomStream& Rng, TArray<FVector2D>& OutPoints) const;
 	void Triangulate(const TArray<FVector2D>& Points, TArray<int32>& OutTriangles) const;
 	void BuildBlocksFromDelaunay(const TArray<FVector2D>& Points, const TArray<int32>& Triangles);
+	void BuildRoadSplines(const TArray<FVector2D>& Points, const TArray<int32>& Triangles);
 	
 	void DrawDebugNetwork() const;
 
@@ -78,4 +86,7 @@ private:
 	static TArray<FVector2D> ShrinkPolygon(const TArray<FVector2D>& Poly, float Inset);
 	static float PolygonSignedArea(const TArray<FVector2D>& Poly);
 	static TArray<FVector2D> ClipToBounds(const TArray<FVector2D>& Poly, const FVector2D& HalfExtent);
+
+	// Clip a segment to the city rectangle. Returns false if fully outside.
+	static bool ClipSegmentToBounds(FVector2D& A, FVector2D& B, const FVector2D& HalfExtent);
 };
