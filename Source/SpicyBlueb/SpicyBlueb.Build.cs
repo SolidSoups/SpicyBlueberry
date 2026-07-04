@@ -8,9 +8,9 @@ public class SpicyBlueb : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "PCG", "PhysicsControl", "PhysicsControlUncookedOnly", "PhysicsControlEditor"});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore"  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore"});
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
