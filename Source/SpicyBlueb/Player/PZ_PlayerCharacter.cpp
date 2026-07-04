@@ -10,6 +10,8 @@
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "Net/Core/PushModel/PushModel.h"
 
 
 APZ_PlayerCharacter::APZ_PlayerCharacter()
@@ -76,6 +78,14 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	
 }
 
+void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	// [Elias Brown]: Question, what is this macro, how does it control replication?
+	// What does COND_SkipOwner do exactly?
+	DOREPLIFETIME_CONDITION(APZ_PlayerCharacter, RepFacingYaw, COND_SkipOwner)
+}
+
 void APZ_PlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
@@ -115,15 +125,15 @@ void APZ_PlayerCharacter::UpdateMouseFacing()
 	FVector WorldOrigin, WorldDir;
 	if (!PC->DeprojectMousePositionToWorld(WorldOrigin, WorldDir)) return;
 
-	const FVector CharLoc = GetActorLocation();
+	const FVector CharLocation = GetActorLocation();
 	
-	const FPlane GroundPlane(CharLoc, FVector::UpVector);
+	const FPlane GroundPlane(CharLocation, FVector::UpVector);
 	const FVector RayEnd = WorldOrigin + WorldDir * 10000000.f;
 
 	FVector HitPoint;
 	if (!FMath::SegmentPlaneIntersection(WorldOrigin, RayEnd, GroundPlane, HitPoint)) return;
 
-	FVector ToCursor = HitPoint - CharLoc;
+	FVector ToCursor = HitPoint - CharLocation;
 	ToCursor.Z = 0.f;
 
 	if (!ToCursor.IsNearlyZero())
@@ -133,16 +143,42 @@ void APZ_PlayerCharacter::UpdateMouseFacing()
 	
 	if(bDebug)
 	{
-		DrawDebugLine(GetWorld(), CharLoc, CharLoc + DesiredFacing * 300.f, FColor::Red, false, -1.f, 0, 3.f);
+		DrawDebugLine(GetWorld(), CharLocation, CharLocation + DesiredFacing * 300.f, FColor::Red, false, -1.f, 0, 3.f);
 	}
 }
 
 void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 {
-	if (DesiredFacing.IsNearlyZero()) return;
+	if (!IsLocallyControlled())
+	{
+		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
+		return;
+	}
 
+	// Get new rotation yaw from desired facing, set local rotation
+	if (DesiredFacing.IsNearlyZero()) return;
 	const float TargetYaw = DesiredFacing.Rotation().Yaw;
 	SetActorRotation(FRotator(0.f, TargetYaw, 0.f));
+
+	// Replicate the yaw value only from the server machine
+	if (HasAuthority())
+	{
+		RepFacingYaw = TargetYaw;
+		MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
+	}
+	else
+	{
+		Server_SetFacingYaw(TargetYaw);
+	}
+}
+
+void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
+{
+	RepFacingYaw = NewYaw;
+	// Mark RepFacingYaw as dirty. Iris keeps track of all dirty properties
+	// in a object-to-property table. We need to explicitly trigger the replication
+	// by setting it to dirty.
+	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
 }
 
 void APZ_PlayerCharacter::AddInputMapping()

@@ -25,6 +25,13 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	// Input handlers
+	void Move(const FInputActionValue& Value);
+	void Aim(const FInputActionValue& Value);
+	
+	void AddInputMapping();
 	
 	// Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -62,20 +69,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Aim")
 	float GamepadAimDeadzone = 0.25f;
 	
-	// Input handlers
-	void Move(const FInputActionValue& Value);
-	void Aim(const FInputActionValue& Value);
-	
-	void AddInputMapping();
-	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
 	bool bDebug = false;
 	
 private:
-	FVector DesiredFacing = FVector::ForwardVector;
-	bool bUsingGamepadAim = false;
-	
 	// Helpers
 	void UpdateMouseFacing();
 	void ApplyFacing(float DeltaTime);
+	
+	UPROPERTY(Replicated)
+	float RepFacingYaw = 0.f;
+	
+	UFUNCTION(Server, Unreliable)
+	void Server_SetFacingYaw(float NewYaw);
+	
+	FVector DesiredFacing = FVector::ForwardVector;
+	bool bUsingGamepadAim = false;
 };
