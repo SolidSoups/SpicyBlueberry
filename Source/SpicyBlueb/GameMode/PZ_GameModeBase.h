@@ -16,4 +16,7 @@ class SPICYBLUEB_API APZ_GameModeBase : public AGameModeBase
 	
 public:
 	APZ_GameModeBase();
+	
+protected:
+	virtual void BeginPlay();
 };
