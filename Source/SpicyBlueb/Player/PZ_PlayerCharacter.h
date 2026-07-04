@@ -15,10 +15,12 @@ class UInputAction;
 UCLASS()
 class SPICYBLUEB_API APZ_PlayerCharacter : public ACharacter
 {
+private:
 	GENERATED_BODY()
 
 public:
 	APZ_PlayerCharacter();
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 protected:
 	virtual void BeginPlay() override;

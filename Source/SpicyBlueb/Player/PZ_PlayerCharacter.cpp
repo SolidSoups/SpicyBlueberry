@@ -37,6 +37,16 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 }
 
+void APZ_PlayerCharacter::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	
+	// OnConstruct runs during editor runtime, so we need to change socket
+	// settings here
+	SpringArm->TargetArmLength = CameraHeight;
+	SpringArm->SetRelativeRotation(FRotator(CameraPitch, CameraYaw, 0.f));
+}
+
 void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
