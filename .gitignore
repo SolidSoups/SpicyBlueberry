@@ -523,3 +523,7 @@ MigrationBackup/
 # End of https://www.toptal.com/developers/gitignore/api/unrealengine,rider,vs
 # Ignore entire Rider .idea folder
 .idea/
+
+# Ignore build directory
+/Windows/
+*.rar
