@@ -149,27 +149,31 @@ void APZ_PlayerCharacter::UpdateMouseFacing()
 
 void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 {
-	if (!IsLocallyControlled())
+	if (IsLocallyControlled())
 	{
-		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
+		if (DesiredFacing.IsNearlyZero()) return;
+		const float TargetYaw = DesiredFacing.Rotation().Yaw;
+		SetActorRotation(FRotator(0.f, TargetYaw, 0.f));
+
+		if (HasAuthority())
+		{
+			RepFacingYaw = TargetYaw;
+			MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
+		}
+		else
+		{
+			Server_SetFacingYaw(TargetYaw);
+		}
 		return;
 	}
 
-	// Get new rotation yaw from desired facing, set local rotation
-	if (DesiredFacing.IsNearlyZero()) return;
-	const float TargetYaw = DesiredFacing.Rotation().Yaw;
-	SetActorRotation(FRotator(0.f, TargetYaw, 0.f));
-
-	// Replicate the yaw value only from the server machine
 	if (HasAuthority())
 	{
-		RepFacingYaw = TargetYaw;
-		MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
+		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
 	}
-	else
-	{
-		Server_SetFacingYaw(TargetYaw);
-	}
+	
+	// Purely simulated proxies (not owner, not server) do nothing here.
+	// ACharacter already replicated and smooths rotation
 }
 
 void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
