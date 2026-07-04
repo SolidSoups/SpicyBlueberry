@@ -17,10 +17,10 @@
 APZ_PlayerCharacter::APZ_PlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	
+
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	bUseControllerRotationYaw = false;
-	
+
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = CameraHeight;
@@ -31,7 +31,7 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	SpringArm->bInheritRoll = false;
 	SpringArm->bEnableCameraLag = true;
 	SpringArm->CameraLagSpeed = 10.f;
-	
+
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
@@ -46,7 +46,7 @@ void APZ_PlayerCharacter::BeginPlay()
 void APZ_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (!bUsingGamepadAim)
 	{
 		UpdateMouseFacing();
@@ -64,9 +64,9 @@ void APZ_PlayerCharacter::PawnClientRestart()
 void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	
+
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-	
+
 	if (!EIC) return;
 	if (MoveAction) EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Move);
 	if (AimAction) EIC->BindAction(AimAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Aim);
@@ -75,7 +75,6 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
-	
 }
 
 void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -89,11 +88,11 @@ void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 void APZ_PlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D Axis = Value.Get<FVector2D>();
-	
+
 	const FRotator YawRot(0.f, CameraYaw, 0.f);
 	const FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 	const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
-	
+
 	AddMovementInput(Forward, Axis.Y);
 	AddMovementInput(Right, Axis.X);
 }
@@ -109,10 +108,10 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 	}
 
 	bUsingGamepadAim = true;
-	
+
 	const FRotator YawRot(0.f, CameraYaw, 0.f);
 	const FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
-	const FVector Right   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
+	const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 
 	DesiredFacing = (Forward * Stick.Y + Right * Stick.X).GetSafeNormal();
 }
@@ -121,12 +120,12 @@ void APZ_PlayerCharacter::UpdateMouseFacing()
 {
 	APlayerController* PC = Cast<APlayerController>(GetController());
 	if (!PC || !PC->IsLocalController()) return;
-	
+
 	FVector WorldOrigin, WorldDir;
 	if (!PC->DeprojectMousePositionToWorld(WorldOrigin, WorldDir)) return;
 
 	const FVector CharLocation = GetActorLocation();
-	
+
 	const FPlane GroundPlane(CharLocation, FVector::UpVector);
 	const FVector RayEnd = WorldOrigin + WorldDir * 10000000.f;
 
@@ -140,8 +139,8 @@ void APZ_PlayerCharacter::UpdateMouseFacing()
 	{
 		DesiredFacing = ToCursor.GetSafeNormal();
 	}
-	
-	if(bDebug)
+
+	if (bDebug)
 	{
 		DrawDebugLine(GetWorld(), CharLocation, CharLocation + DesiredFacing * 300.f, FColor::Red, false, -1.f, 0, 3.f);
 	}
