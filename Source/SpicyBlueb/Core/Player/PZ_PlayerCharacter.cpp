@@ -54,7 +54,7 @@ void APZ_PlayerCharacter::OnConstruction(const FTransform& Transform)
 	SpringArm->SetRelativeRotation(FRotator(CameraPitch, CameraYaw, 0.f));
 }
 
-void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
