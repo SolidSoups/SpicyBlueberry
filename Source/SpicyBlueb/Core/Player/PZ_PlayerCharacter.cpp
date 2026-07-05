@@ -8,12 +8,15 @@
 #include "Animation/AnimInstance.h"
 #include "PZ_PlayerState.h"
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/GameplayStaticsTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
@@ -27,7 +30,9 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	GetCharacterMovement()->bOrientRotationToMovement = false;
+	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	MovementComponent->bOrientRotationToMovement = false;
+
 	bUseControllerRotationYaw = false;
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -82,8 +87,88 @@ FVector APZ_PlayerCharacter::GetFacingDirection() const
 {
 	if (IsLocallyControlled())
 		return FRotator(0.f, LastAppliedYaw, 0.f).Vector();
-	
+
 	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
+}
+
+void APZ_PlayerCharacter::BeginLaunchSequence(const FVector& LaunchVelocity)
+{
+	FPredictProjectilePathParams Params;
+	Params.StartLocation = GetActorLocation();
+	Params.LaunchVelocity = LaunchVelocity;
+	Params.bTraceWithCollision = true;
+	Params.ProjectileRadius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+	Params.TraceChannel = ECC_WorldStatic;
+	Params.ActorsToIgnore.Add(this);
+	Params.MaxSimTime = 2.f;
+	Params.OverrideGravityZ = GetCharacterMovement()->GetGravityZ();
+
+	FPredictProjectilePathResult Result;
+	UGameplayStatics::PredictProjectilePath(this, Params, Result);
+
+
+	LocalLaunchParams.StartLocation = GetActorLocation();
+	LocalLaunchParams.StartVelocity = LaunchVelocity;
+	LocalLaunchParams.Elapsed = 0.f;
+	LocalLaunchParams.Duration = Result.PathData.Num() > 0 ? Result.PathData.Last().Time : Params.MaxSimTime;
+
+	// Draw predicted path
+	if (bDebug and !HasAuthority())
+	{
+		DrawLaunchParams(LocalLaunchParams, FColor::Green);
+	}
+
+	EnterLaunchState();
+
+	if (HasAuthority())
+	{
+		// Send correct launch parameters to all clients
+		Multicast_ReceiveLaunchCorrection(LocalLaunchParams);
+	}
+}
+
+void APZ_PlayerCharacter::DrawLaunchParams(const FPZ_LaunchSequenceParameters& InParams, const FColor& InColor)
+{
+	const FVector Gravity(0.f, 0.f, GetCharacterMovement()->GetGravityZ());
+
+	FVector Previous = InParams.StartLocation;
+	constexpr int32 NumSteps = 20;
+	for (int32 i = 1; i <= NumSteps; i++)
+	{
+		const float T = InParams.Duration * (float(i) / NumSteps);
+		const FVector Point = InParams.StartLocation + InParams.StartVelocity * T + 0.5f * Gravity * T * T;
+		DrawDebugLine(GetWorld(), Previous, Point, InColor, false, 5.f, 0U, 2.f);
+		Previous = Point;
+	}
+}
+
+void APZ_PlayerCharacter::EnterLaunchState()
+{
+	if (IsLaunching) return;
+
+	IsLaunching = true;
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->SetComponentTickEnabled(false);
+	GetCharacterMovement()->Deactivate();
+
+	if (HasAuthority())
+	{
+		SetReplicateMovement(false);
+	}
+}
+
+void APZ_PlayerCharacter::Multicast_ReceiveLaunchCorrection_Implementation(const FPZ_LaunchSequenceParameters& InParams)
+{
+	if (HasAuthority()) return; // running locally already
+
+	CorrectedLaunchParams = InParams;
+	HasLaunchCorrection = true;
+	EnterLaunchState();
+
+	if (bDebug)
+	{
+		DrawLaunchParams(InParams, FColor::Red);
+	}
 }
 
 
@@ -98,32 +183,16 @@ void APZ_PlayerCharacter::CarryPizza(APZ_Pizza* Pizza)
 void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	AddInputMapping();
 	SpawnAndAttachShovel();
 	LastAppliedYaw = GetActorRotation().Yaw;
 }
 
+
 void APZ_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	//if (GetLocalRole() != ROLE_SimulatedProxy)
-	//{
-	//	const float CurrentYaw = GetActorRotation().Yaw;
-	//	if (FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYaw, LastAppliedYaw)) > 1.f)
-	//	{
-	//		UE_LOG(LogTemp, Error, TEXT("%s: rotation stomped! wrote=%.1f found=%.1f montage=%d"),
-	//		       *GetName(), LastAppliedYaw, CurrentYaw,
-	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Display, TEXT("%s: rotation did not stomp! wrote=%.1f found=%.1f montage=%d"),
-	//		       *GetName(), LastAppliedYaw, CurrentYaw,
-	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-	//		
-	//	}
-	//}
 
 	if (!bUsingGamepadAim)
 	{
@@ -131,6 +200,77 @@ void APZ_PlayerCharacter::Tick(float DeltaTime)
 	}
 
 	ApplyFacing(DeltaTime);
+
+	if (IsLaunching)
+	{
+		TickLaunchSequence(DeltaTime);
+	}
+}
+
+void APZ_PlayerCharacter::TickLaunchSequence(float DeltaTime)
+{
+	LocalLaunchParams.Elapsed += DeltaTime;
+	if (HasLaunchCorrection)
+	{
+		CorrectedLaunchParams.Elapsed += DeltaTime;
+	}
+
+	const FPZ_LaunchSequenceParameters& AuthParams = HasLaunchCorrection ? CorrectedLaunchParams : LocalLaunchParams;
+	const FVector Gravity(0.0f, 0.0f, GetCharacterMovement()->GetGravityZ());
+
+	// Did the launch sequence end?
+	if (AuthParams.Elapsed >= AuthParams.Duration)
+	{
+		IsLaunching = false;
+		SetActorLocation(GetLaunchLocation(AuthParams), true);
+		GetCharacterMovement()->Velocity = GetLaunchVelocity(AuthParams);
+		GetCharacterMovement()->Activate();
+		GetCharacterMovement()->SetComponentTickEnabled(true);
+		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+		HasLaunchCorrection = false;
+
+		if (HasAuthority())
+		{
+			SetReplicateMovement(true);
+		}
+	}
+	else if (HasLaunchCorrection)
+	{
+		// As a client, we need to blend with the correct launch path here
+		// to arrive at the same location as the server
+		GetCharacterMovement()->Velocity = GetLaunchVelocity(CorrectedLaunchParams);
+		SetActorLocation(FMath::VInterpConstantTo(
+			                 GetActorLocation(),
+			                 GetLaunchLocation(CorrectedLaunchParams),
+			                 DeltaTime,
+			                 LaunchCorrectionSpeed),
+		                 true
+		);
+	}
+	else
+	{
+		GetCharacterMovement()->Velocity = GetLaunchVelocity(LocalLaunchParams);
+		SetActorLocation(GetLaunchLocation(LocalLaunchParams), true);
+	}
+
+	if (bDebug and !HasAuthority())
+	{
+		DrawDebugSphere(GetWorld(), GetLaunchLocation(LocalLaunchParams), 12.f, 8, FColor::Yellow, false, 0.f, 0, 1.f);
+
+		if (HasLaunchCorrection)
+		{
+			DrawDebugSphere(GetWorld(), GetLaunchLocation(CorrectedLaunchParams), 12.f, 8, FColor::Green, false, 0.f, 0,
+			                1.f);
+			DrawDebugLine(GetWorld(), GetLaunchLocation(LocalLaunchParams), GetLaunchLocation(CorrectedLaunchParams),
+			              FColor::Red, false, 0.f, 0, 1.f);
+
+			GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::White,
+			                                 FString::Printf(
+				                                 TEXT("Launch correction gap: %.1f"),
+				                                 FVector::Dist(GetLaunchLocation(LocalLaunchParams),
+				                                               GetLaunchLocation(CorrectedLaunchParams))));
+		}
+	}
 }
 
 void APZ_PlayerCharacter::PawnClientRestart()
@@ -196,10 +336,10 @@ void APZ_PlayerCharacter::DoAttack()
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
-	}	
-	
+	}
+
 	PlayAttackMontage();
-	
+
 	if (HasAuthority())
 	{
 		RepAttackTrigger++;
@@ -308,6 +448,22 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 	PlayAttackMontage();
 }
 
+FVector APZ_PlayerCharacter::GetLaunchLocation(const FPZ_LaunchSequenceParameters& InParams) const
+{
+	const FVector Gravity(0.f, 0.f, GetCharacterMovement()->GetGravityZ());
+	const FVector Position = InParams.StartLocation
+		+ InParams.StartVelocity * InParams.Elapsed
+		+ 0.5f * Gravity * InParams.Elapsed * InParams.Elapsed;
+	return Position;
+}
+
+FVector APZ_PlayerCharacter::GetLaunchVelocity(const FPZ_LaunchSequenceParameters& InParams) const
+{
+	const FVector Gravity(0.f, 0.f, GetCharacterMovement()->GetGravityZ());
+	const FVector Velocity = InParams.StartVelocity + Gravity * InParams.Elapsed;
+	return Velocity;
+}
+
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
 	// Carrying -> try to deliver at the delivery point I'm currently on.
@@ -345,11 +501,11 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 void APZ_PlayerCharacter::Server_DoAttack_Implementation(float ClientFacingYaw)
 {
 	// we want all clients to use this Yaw for the attack calculations
-	RepFacingYaw = ClientFacingYaw;	
+	RepFacingYaw = ClientFacingYaw;
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
-	
-	PlayAttackMontage();	
-	
+
+	PlayAttackMontage();
+
 	RepAttackTrigger++;
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepAttackTrigger, this);
 }
@@ -361,7 +517,6 @@ void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
 	// in a object-to-property table. We need to explicitly trigger the replication
 	// by setting it to dirty.
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
-	
 }
 
 void APZ_PlayerCharacter::AddInputMapping()

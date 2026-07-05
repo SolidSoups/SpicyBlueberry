@@ -8,6 +8,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerState.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 
 APZ_Shovel::APZ_Shovel()
@@ -50,27 +52,14 @@ void APZ_Shovel::OnHitVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponen
                                          const FHitResult& SweepResult)
 {
 	APZ_PlayerCharacter* Wielder = Cast<APZ_PlayerCharacter>(GetOwner());
-	ACharacter* Target = Cast<ACharacter>(OtherActor);
+	APZ_PlayerCharacter* Target = Cast<APZ_PlayerCharacter>(OtherActor);
 
 	if (!Wielder or !Target or Target == Wielder) return;
-	
+
 	// Only hit other actors once
 	if (HitActorsThisSwing.Contains(Target)) return;
 	HitActorsThisSwing.Add(Target);
-	
-	// Only apply physics on the server or a pawn that you control!	
-	if (Wielder->HasAuthority() or Target->IsLocallyControlled())
-	{
-		FVector LaunchVelocity = ComputeLaunchDirection(Wielder->GetFacingDirection().GetSafeNormal2D()) * LaunchForce;
-		Target->LaunchCharacter(LaunchVelocity, true, true);
-	}
-	else
-	{
-		// TODO: add attacker feedback, hit sound, particle, camera shake
-	}
-	
-	if (Wielder->HasAuthority())
-	{
-		// Mutate authoritative state that clients should NOT touch
-	}
+
+	FVector LaunchVelocity = ComputeLaunchDirection(Wielder->GetFacingDirection().GetSafeNormal2D()) * LaunchForce;
+	Target->BeginLaunchSequence(LaunchVelocity);
 }

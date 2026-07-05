@@ -17,6 +17,24 @@ class APZ_Pizza;
 class APZ_Restaurant;
 class APZ_DeliveryPoint;
 
+USTRUCT()
+struct FPZ_LaunchSequenceParameters
+{
+	GENERATED_BODY()
+	
+	UPROPERTY()
+	float Elapsed = 0.f;
+	
+	UPROPERTY()
+	float Duration = 2.f;
+	
+	UPROPERTY()
+	FVector StartLocation = FVector::ZeroVector;
+	
+	UPROPERTY()
+	FVector StartVelocity = FVector::ZeroVector;
+};
+
 UCLASS()
 class SPICYBLUEB_API APZ_PlayerCharacter : public ACharacter
 {
@@ -61,6 +79,14 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	FVector GetFacingDirection() const ;
+	
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void BeginLaunchSequence(const FVector& LaunchVelocity);
+	void DrawLaunchParams(const FPZ_LaunchSequenceParameters& InParams, const FColor& InColor);
+	void EnterLaunchState();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ReceiveLaunchCorrection(const FPZ_LaunchSequenceParameters& InParams);
 
 protected:
 	// Input handlers
@@ -128,9 +154,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<UAnimMontage> AttackMontage;
 
-private:
-	void SpawnAndAttachShovel();
+	// Movement
+	
+	// The speed at which to server-correct launch path
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement")
+	float LaunchCorrectionSpeed = 2000.f;
 
+private:
+	void TickLaunchSequence(float DeltaTime);
+	void SpawnAndAttachShovel();	
+	
 	// Helpers
 	void UpdateMouseFacing();
 	void ApplyFacing(float DeltaTime);
@@ -171,4 +204,12 @@ private:
 	
 	FVector DesiredFacing = FVector::ForwardVector;
 	bool bUsingGamepadAim = false;
+	
+	bool IsLaunching = false;
+	bool HasLaunchCorrection = false;
+    FPZ_LaunchSequenceParameters LocalLaunchParams;
+    FPZ_LaunchSequenceParameters CorrectedLaunchParams;
+	
+	inline FVector GetLaunchLocation(const FPZ_LaunchSequenceParameters& InParams) const;
+	inline FVector GetLaunchVelocity(const FPZ_LaunchSequenceParameters& InParams) const;
 };
