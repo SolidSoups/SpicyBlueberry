@@ -45,9 +45,6 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void PlayAttackMontage();
-	
-	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void SetWeaponCollisionEnabled(bool IsEnabled);
 	
 	UFUNCTION(BlueprintCallable, Category = "Movement")
