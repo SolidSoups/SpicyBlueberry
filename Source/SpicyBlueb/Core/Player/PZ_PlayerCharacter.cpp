@@ -292,8 +292,10 @@ void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 
 	if (HasAuthority())
 	{
-		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
-		LastAppliedYaw = RepFacingYaw;
+		// Smooth the new yaw
+		const float NewYaw = FMath::FixedTurn(LastAppliedYaw, RepFacingYaw, AimRotationSpeed * DeltaTime);
+		SetActorRotation(FRotator(0.f, NewYaw, 0.f));
+		LastAppliedYaw = NewYaw;
 	}
 
 	// Purely simulated proxies (not owner, not server) do nothing here.
