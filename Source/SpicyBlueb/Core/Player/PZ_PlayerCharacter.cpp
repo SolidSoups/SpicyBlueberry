@@ -75,7 +75,6 @@ void APZ_PlayerCharacter::PlayAttackMontage()
 
 void APZ_PlayerCharacter::SetWeaponCollisionEnabled(bool IsEnabled)
 {
-	if (!HasAuthority()) return;
 	if (EquippedShovel) EquippedShovel->SetHitVolumeEnabled(IsEnabled);
 }
 
@@ -208,7 +207,7 @@ void APZ_PlayerCharacter::DoAttack()
 	}
 	else
 	{
-		Server_DoAttack();
+		Server_DoAttack(LastAppliedYaw);
 	}
 }
 
@@ -343,8 +342,12 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 	}
 }
 
-void APZ_PlayerCharacter::Server_DoAttack_Implementation()
+void APZ_PlayerCharacter::Server_DoAttack_Implementation(float ClientFacingYaw)
 {
+	// we want all clients to use this Yaw for the attack calculations
+	RepFacingYaw = ClientFacingYaw;	
+	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
+	
 	PlayAttackMontage();	
 	
 	RepAttackTrigger++;

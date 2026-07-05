@@ -58,13 +58,19 @@ void APZ_Shovel::OnHitVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponen
 	if (HitActorsThisSwing.Contains(Target)) return;
 	HitActorsThisSwing.Add(Target);
 	
-	// Testing here. Something is changing actor forward after the APZ_PlayerCharacter::Tick, presumably
-	// it is the Character Movement Component. What could be the issue is that the montage has some kind of root motion
-	const FVector ActorForward = Wielder->GetActorForwardVector().GetSafeNormal2D();
-	bool IsTrueForward = ActorForward == FVector::ForwardVector;
-	GEngine->AddOnScreenDebugMessage(-1, 10.f, IsTrueForward ? FColor::Red : FColor::Yellow, FString::Printf(TEXT("Wielder Fwd: %s"), *ActorForward.ToCompactString()));
-
-	// Launch the other player into the air
-	FVector LaunchVelocity = ComputeLaunchDirection(Wielder->GetFacingDirection().GetSafeNormal2D()) * LaunchForce;
-	Target->LaunchCharacter(LaunchVelocity, true, true);
+	// Only apply physics on the server or a pawn that you control!	
+	if (Wielder->HasAuthority() or Target->IsLocallyControlled())
+	{
+		FVector LaunchVelocity = ComputeLaunchDirection(Wielder->GetFacingDirection().GetSafeNormal2D()) * LaunchForce;
+		Target->LaunchCharacter(LaunchVelocity, true, true);
+	}
+	else
+	{
+		// TODO: add attacker feedback, hit sound, particle, camera shake
+	}
+	
+	if (Wielder->HasAuthority())
+	{
+		// Mutate authoritative state that clients should NOT touch
+	}
 }

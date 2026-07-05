@@ -169,8 +169,8 @@ private:
 	void Server_SetFacingYaw(float NewYaw);
 
 	UFUNCTION(Server, Reliable)
-	void Server_DoAttack();
-
+	void Server_DoAttack(float ClientFacingYaw);
+	
 	FVector DesiredFacing = FVector::ForwardVector;
 	bool bUsingGamepadAim = false;
 };
