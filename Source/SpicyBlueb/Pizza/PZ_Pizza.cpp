@@ -14,10 +14,10 @@ APZ_Pizza::APZ_Pizza()
 	
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PizzaMesh"));
 	SetRootComponent(Mesh);
-	
-	Mesh->SetSimulatePhysics(true);
-	Mesh->SetLinearDamping(2.f);
-	Mesh->SetMassOverrideInKg(NAME_None, 2.f,true);
+
+	Mesh->BodyInstance.bSimulatePhysics = true;
+	Mesh->BodyInstance.LinearDamping = 2.f;
+	Mesh->BodyInstance.SetMassOverride(2.f, true);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 }
 

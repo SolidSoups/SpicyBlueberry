@@ -50,13 +50,21 @@ public:
 		if (OverlappingDeliveryPoint == Source) OverlappingDeliveryPoint = nullptr;
 	}
 
-protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	virtual void OnConstruction(const FTransform& Transform) override;
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void SetWeaponCollisionEnabled(bool IsEnabled);
+	
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	FVector GetFacingDirection() const ;
 
+protected:
 	// Input handlers
 	void Move(const FInputActionValue& Value);
 	void Aim(const FInputActionValue& Value);
@@ -139,6 +147,8 @@ private:
 
 	UFUNCTION()
 	void OnRep_AttackTrigger();
+
+	float LastAppliedYaw = 0.f;
 
 	const FName HandSocketName = TEXT("HandGrip_R");
 	const FName PizzaSocketName = TEXT("PizzaHold");
