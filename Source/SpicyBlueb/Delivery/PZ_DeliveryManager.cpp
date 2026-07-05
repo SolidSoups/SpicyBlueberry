@@ -67,20 +67,16 @@ void APZ_DeliveryManager::IssueBatch(APZ_PlayerState* Player)
 
 	Player->ActiveOrders.Reset();
 
+	// A batch is simply N deliveries owed. The player chooses which active
+	// point to deliver each one to - orders are not tied to a specific point.
 	const int32 NumOrders = FMath::Clamp(
 		FMath::RandRange(MinOrdersPerBatch, MaxOrdersPerBatch),
-		1, ActivePoints.Num());
+		1, MaxOrdersPerBatch);
 
-	// Distinct points per batch so a route has multiple stops.
-	TArray<int32> Indices;
-	for (int32 i = 0; i < ActivePoints.Num(); ++i) Indices.Add(i);
 	for (int32 i = 0; i < NumOrders; ++i)
 	{
-		const int32 Pick = FMath::RandRange(i, Indices.Num() - 1);
-		Indices.Swap(i, Pick);
-
 		FPZ_Order Order;
-		Order.Destination = ActivePoints[Indices[i]];
+		Order.Destination = nullptr; // any active point satisfies this order
 		Order.IssuedTime = GetWorld()->GetTimeSeconds();
 		Order.BaseReward = 100;
 		Player->ActiveOrders.Add(Order);
@@ -91,11 +87,19 @@ int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint
 {
 	if (!HasAuthority() || !Player || !Point || !Pizza) return 0;
 
-	// Find a matching, unfulfilled order routing to this point.
+	// The point must be a currently active delivery point.
+	if (!ActivePoints.Contains(Point))
+	{
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Not an active delivery point"));
+		return 0;
+	}
+
+	// Free choice: fulfill the first unfulfilled order in the batch,
+	// regardless of which point it is. The player picks where to deliver.
 	FPZ_Order* Match = nullptr;
 	for (FPZ_Order& O : Player->ActiveOrders)
 	{
-		if (!O.bFulfilled && O.Destination == Point)
+		if (!O.bFulfilled)
 		{
 			Match = &O;
 			break;
