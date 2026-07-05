@@ -193,6 +193,7 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 
 void APZ_PlayerCharacter::DoAttack()
 {
+	UE_LOG(LogTemp, Display, TEXT("Player Attack!"));
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
