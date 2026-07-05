@@ -16,4 +16,5 @@ class SPICYBLUEB_API APZ_PlayerController : public APlayerController
 	
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick( float DeltaTime ) override;
 };

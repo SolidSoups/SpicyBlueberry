@@ -5,10 +5,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
-#include "SpicyBlueb/Core/Player/PZ_PlayerState.h"
-#include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
 #include "Engine/World.h"
 
 APZ_DeliveryPoint::APZ_DeliveryPoint()
@@ -21,7 +18,10 @@ APZ_DeliveryPoint::APZ_DeliveryPoint()
 	SetRootComponent(AcceptVolume);
 	AcceptVolume->InitSphereRadius(AcceptRadius);
 	AcceptVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	AcceptVolume->SetCollisionResponseToAllChannels(ECR_Overlap);
+	AcceptVolume->SetCollisionObjectType(ECC_WorldDynamic);
+	AcceptVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
+	AcceptVolume->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	AcceptVolume->SetGenerateOverlapEvents(true);
 
 	Marker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Marker"));
 	Marker->SetupAttachment(AcceptVolume);
@@ -39,31 +39,28 @@ void APZ_DeliveryPoint::BeginPlay()
 	Super::BeginPlay();
 	AcceptVolume->SetSphereRadius(AcceptRadius);
 	AcceptVolume->OnComponentBeginOverlap.AddDynamic(this, &APZ_DeliveryPoint::OnAcceptOverlap);
+	AcceptVolume->OnComponentEndOverlap.AddDynamic(this, &APZ_DeliveryPoint::OnAcceptEndOverlap);
 }
 
 void APZ_DeliveryPoint::OnAcceptOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
 {
+	// Server owns the overlap state that Interact() reads.
 	if (!HasAuthority() || !OtherActor) return;
 
-	APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor);
-	if (!Char) return;
-
-	APZ_Pizza* Pizza = Char->GetCarriedPizza();
-	if (!Pizza) return;
-
-	APZ_PlayerState* PS = Char->GetPlayerState<APZ_PlayerState>();
-	if (!PS) return;
-
-	if (APZ_GameModeBase* GM = GetWorld()->GetAuthGameMode<APZ_GameModeBase>())
+	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
 	{
-		if (APZ_DeliveryManager* Mgr = GM->GetDeliveryManager())
-		{
-			const int32 Awarded = Mgr->TryDeliver(PS, this, Pizza);
-			if (Awarded > 0)
-			{
-				Char->ClearCarriedPizza();
-			}
-		}
+		// Register this point so the player can deliver via Interact.
+		Char->SetOverlappingDeliveryPoint(this);
+	}
+}
+
+void APZ_DeliveryPoint::OnAcceptEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (!HasAuthority() || !OtherActor) return;
+
+	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
+	{
+		Char->ClearOverlappingDeliveryPoint(this);
 	}
 }
 

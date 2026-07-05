@@ -5,6 +5,7 @@
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
+#include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
@@ -22,7 +23,10 @@ APZ_Restaurant::APZ_Restaurant()
 	PickupZone->SetupAttachment(Mesh);
 	PickupZone->SetBoxExtent(FVector(200.f, 200.f, 150.f));
 	PickupZone->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	PickupZone->SetCollisionResponseToAllChannels(ECR_Overlap);
+	PickupZone->SetCollisionObjectType(ECC_WorldDynamic);
+	PickupZone->SetCollisionResponseToAllChannels(ECR_Ignore);
+	PickupZone->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	PickupZone->SetGenerateOverlapEvents(true);
 
 	CounterPoint = CreateDefaultSubobject<USceneComponent>(TEXT("CounterPoint"));
 	CounterPoint->SetupAttachment(Mesh);
@@ -34,10 +38,29 @@ void APZ_Restaurant::BeginPlay()
 	Super::BeginPlay();
 	PickupZone->OnComponentBeginOverlap.AddDynamic(this, &APZ_Restaurant::OnZoneBeginOverlap);
 	PickupZone->OnComponentEndOverlap.AddDynamic(this, &APZ_Restaurant::OnZoneEndOverlap);
+
+	// Catch players already standing in the zone at spawn (server only).
+	if (HasAuthority())
+	{
+		TArray<AActor*> Overlapping;
+		PickupZone->GetOverlappingActors(Overlapping, APZ_PlayerCharacter::StaticClass());
+		for (AActor* A : Overlapping)
+		{
+			if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(A))
+			{
+				if (IsOwnedBy(Char))
+				{
+					Char->SetOverlappingRestaurant(this);
+				}
+			}
+		}
+	}
 }
 
 void APZ_Restaurant::OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
 {
+	if (!HasAuthority()) return;
+
 	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
 	{
 		if (IsOwnedBy(Char))
@@ -49,9 +72,11 @@ void APZ_Restaurant::OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 
 void APZ_Restaurant::OnZoneEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
+	if (!HasAuthority()) return;
+
 	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
 	{
-		Char->SetOverlappingRestaurant(nullptr);
+		Char->ClearOverlappingRestaurant(this);
 	}
 }
 

@@ -30,7 +30,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
 	void OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep);
+	UFUNCTION()
 	void OnZoneEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Restaurant")

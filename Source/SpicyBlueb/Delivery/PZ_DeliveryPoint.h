@@ -39,6 +39,9 @@ protected:
 	UFUNCTION()
 	void OnAcceptOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep);
 
+	UFUNCTION()
+	void OnAcceptEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Delivery")
 	TObjectPtr<USphereComponent> AcceptVolume;
 

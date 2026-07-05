@@ -2,6 +2,7 @@
 
 #include "PZ_DeliveryManager.h"
 #include "PZ_DeliveryPoint.h"
+#include "Engine/Engine.h"
 #include "SpicyBlueb/Delivery/PZ_DeliveryTypes.h"
 #include "SpicyBlueb/PCG/PZ_CityGenerator.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerState.h"
@@ -87,10 +88,18 @@ int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint
 			break;
 		}
 	}
-	if (!Match) return 0; // no order for this point.
+	
+	if (!Match)
+	{
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("At point but no order routes here"));
+		return 0; // no order for this point.
+	}
 
 	const int32 Reward = ComputeReward(*Match, Pizza, Point);
 	Player->AddScore(Reward);
+	
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Green, FString::Printf(TEXT("DELIVERED! +%d  (quality=%.0f)"), Reward, Pizza->Quality));
 
 	Match->bFulfilled = true;
 

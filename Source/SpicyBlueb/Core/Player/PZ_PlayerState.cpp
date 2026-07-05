@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "PZ_PlayerState.h"
+#include "Engine/Engine.h"
 #include "Net/UnrealNetwork.h"
 
 APZ_PlayerState::APZ_PlayerState()
@@ -34,6 +35,7 @@ void APZ_PlayerState::AssignTask(EPZ_BossTask NewTask)
 {
 	if (!HasAuthority()) return;
 	CurrentTask = NewTask;
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Magenta, FString::Printf(TEXT("Task assigned: %d"), (int32)NewTask));
 }
 
 void APZ_PlayerState::OnRep_MatchScore()

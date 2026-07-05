@@ -2,18 +2,21 @@
 
 
 #include "PZ_PlayerCharacter.h"
-
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PZ_PlayerController.h"
+#include "PZ_PlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
+#include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
+#include "SpicyBlueb/Delivery/PZ_DeliveryManager.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
@@ -264,10 +267,36 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
-	if (!OverlappingRestaurant) return;
-	if (CarriedPizza) return;
+	// Carrying -> try to deliver at the delivery point I'm currently on.
+	if (CarriedPizza)
+	{
+		if (OverlappingDeliveryPoint)
+		{
+			APZ_PlayerState* PS = GetPlayerState<APZ_PlayerState>();
+			if (PS)
+			{
+				if (APZ_GameModeBase* GM = GetWorld()->GetAuthGameMode<APZ_GameModeBase>())
+					if (APZ_DeliveryManager* Mgr = GM->GetDeliveryManager())
+						if (Mgr->TryDeliver(PS, OverlappingDeliveryPoint, CarriedPizza) > 0)
+							ClearCarriedPizza();
+			}
+		}
+		else if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not on a delivery point"));
+		}
+		return;
+	}
 
-	OverlappingRestaurant->RequestPizza(this);
+	// Empty-handed -> grab a pizza from the restaurant I'm standing in.
+	if (OverlappingRestaurant)
+	{
+		OverlappingRestaurant->RequestPizza(this);
+	}
+	else if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not in a restaurant"));
+	}
 }
 
 void APZ_PlayerCharacter::Server_DoAttack_Implementation()
