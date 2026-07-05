@@ -8,18 +8,23 @@ public class SpicyBlueb : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "PCG", "PhysicsControl" });
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core","CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "PCG", "PhysicsControl",
+			"OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemSteam"
+		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore", "Slate", "SlateCore"  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore", "Slate", "SlateCore" });
 
 		if (Target.Type == TargetType.Editor)
 		{
-			PrivateDependencyModuleNames.AddRange(new string[] { "PhysicsControlUncookedOnly", "PhysicsControlEditor"});
+			PrivateDependencyModuleNames.AddRange(new string[]
+				{ "PhysicsControlUncookedOnly", "PhysicsControlEditor" });
 		}
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-		
+
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
 

@@ -106,23 +106,23 @@ void APZ_PlayerCharacter::BeginPlay()
 void APZ_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (GetLocalRole() != ROLE_SimulatedProxy)
-	{
-		const float CurrentYaw = GetActorRotation().Yaw;
-		if (FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYaw, LastAppliedYaw)) > 1.f)
-		{
-			UE_LOG(LogTemp, Error, TEXT("%s: rotation stomped! wrote=%.1f found=%.1f montage=%d"),
-			       *GetName(), LastAppliedYaw, CurrentYaw,
-			       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Display, TEXT("%s: rotation did not stomp! wrote=%.1f found=%.1f montage=%d"),
-			       *GetName(), LastAppliedYaw, CurrentYaw,
-			       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-			
-		}
-	}
+	//if (GetLocalRole() != ROLE_SimulatedProxy)
+	//{
+	//	const float CurrentYaw = GetActorRotation().Yaw;
+	//	if (FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYaw, LastAppliedYaw)) > 1.f)
+	//	{
+	//		UE_LOG(LogTemp, Error, TEXT("%s: rotation stomped! wrote=%.1f found=%.1f montage=%d"),
+	//		       *GetName(), LastAppliedYaw, CurrentYaw,
+	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
+	//	}
+	//	else
+	//	{
+	//		UE_LOG(LogTemp, Display, TEXT("%s: rotation did not stomp! wrote=%.1f found=%.1f montage=%d"),
+	//		       *GetName(), LastAppliedYaw, CurrentYaw,
+	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
+	//		
+	//	}
+	//}
 
 	if (!bUsingGamepadAim)
 	{
