@@ -62,7 +62,18 @@ void APZ_GameModeBase::OnCityReady()
 		DeliveryManager = GetWorld()->SpawnActor<APZ_DeliveryManager>(DeliveryManagerClass);
 		if (DeliveryManager)
 		{
-			DeliveryManager->Initialize(City);
+			// Gather restaurant spots so delivery points don't spawn on them.
+			TArray<FVector> RestaurantLocations;
+			RestaurantLocations.Reserve(Restaurants.Num());
+			for (const TObjectPtr<APZ_Restaurant>& R : Restaurants)
+			{
+				if (R)
+				{
+					RestaurantLocations.Add(R->GetActorLocation());
+				}
+			}
+
+			DeliveryManager->Initialize(City, RestaurantLocations);
 		}
 	}
 

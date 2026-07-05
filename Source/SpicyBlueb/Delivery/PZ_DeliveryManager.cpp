@@ -15,13 +15,26 @@ APZ_DeliveryManager::APZ_DeliveryManager()
 	bReplicates = false;
 }
 
-void APZ_DeliveryManager::Initialize(APZ_CityGenerator* InCity)
+void APZ_DeliveryManager::Initialize(APZ_CityGenerator* InCity, const TArray<FVector>& RestaurantLocations)
 {
 	if (!HasAuthority()) return;
 	City = InCity;
 	if (!City) return;
 	
 	FreeCandidates = City->GetDeliveryCandidates();
+	
+	const float ClearSq = MinRestaurantClearance * MinRestaurantClearance;
+	FreeCandidates.RemoveAll([&](const FVector& C)
+	{
+		for (const FVector& R : RestaurantLocations)
+		{
+			if (FVector::DistSquared(C, R) < ClearSq)
+			{
+				return true;
+			}
+		}
+		return false;
+	});
 
 	SpawnPoints();
 }

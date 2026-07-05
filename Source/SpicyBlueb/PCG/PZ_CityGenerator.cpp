@@ -33,6 +33,24 @@ void APZ_CityGenerator::RandomizeSeedAndRegenerate()
 	RunGeneration();
 }
 
+void APZ_CityGenerator::ClearCity()
+{
+	// Destroy road splines.
+	for (USplineComponent* S : RoadSplines)
+	{
+		if (S) S->DestroyComponent();
+	}
+	RoadSplines.Reset();
+
+	// Clear blocks and debug lines.
+	Blocks.Reset();
+
+	if (UWorld* World = GetWorld())
+	{
+		FlushPersistentDebugLines(World);
+	}
+}
+
 TArray<FVector> APZ_CityGenerator::GetRestaurantSpawns(int32 NumPlayers) const
 {
 	TArray<FVector> Out;

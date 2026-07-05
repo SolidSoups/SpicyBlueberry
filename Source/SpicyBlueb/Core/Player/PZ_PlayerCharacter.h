@@ -56,8 +56,6 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	virtual void OnConstruction(const FTransform& Transform) override;
-	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void SetWeaponCollisionEnabled(bool IsEnabled);
 	

@@ -20,7 +20,7 @@ class SPICYBLUEB_API APZ_DeliveryManager : public AActor
 public:
 	APZ_DeliveryManager();
 	
-	void Initialize(APZ_CityGenerator* InCity);
+	void Initialize(APZ_CityGenerator* InCity, const TArray<FVector>& RestaurantLocations);
 	void IssueBatch(APZ_PlayerState* Player);
 	
 	int32 TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint* Point, APZ_Pizza* Pizza);
@@ -37,6 +37,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Match")
 	int32 ActivePointCount = 4;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Match")
+	float MinRestaurantClearance = 600.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Score")
 	int32 FirstDeliveryBonus = 50;

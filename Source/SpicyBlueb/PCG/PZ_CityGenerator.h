@@ -59,6 +59,8 @@ public:
 	void RegenerateCurrent();
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "City|Seed")
 	void RandomizeSeedAndRegenerate();
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "City|Seed")
+	void ClearCity();
 
 	bool bCityReady = false;
 
