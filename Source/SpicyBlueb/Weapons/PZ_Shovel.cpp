@@ -9,8 +9,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
-#include "SpicyBlueb/Player/PZ_PlayerCharacter.h"
-
 
 APZ_Shovel::APZ_Shovel()
 {
