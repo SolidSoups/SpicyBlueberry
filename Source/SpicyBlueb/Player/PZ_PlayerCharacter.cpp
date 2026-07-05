@@ -6,8 +6,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PZ_PlayerController.h"
+#include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -69,19 +71,47 @@ void APZ_PlayerCharacter::PlayAttackMontage()
 void APZ_PlayerCharacter::SetWeaponCollisionEnabled(bool IsEnabled)
 {
 	if (!HasAuthority()) return;
-	if (EquippedShovel) EquippedShovel->SetBladeCollisionEnabled(IsEnabled);
+	if (EquippedShovel) EquippedShovel->SetHitVolumeEnabled(IsEnabled);
 }
+
+FVector APZ_PlayerCharacter::GetFacingDirection() const
+{
+	if (IsLocallyControlled())
+		return FRotator(0.f, LastAppliedYaw, 0.f).Vector();
+	
+	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
+}
+
 
 void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
 	AddInputMapping();
 	SpawnAndAttachShovel();
+	LastAppliedYaw = GetActorRotation().Yaw;
 }
 
 void APZ_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (GetLocalRole() != ROLE_SimulatedProxy)
+	{
+		const float CurrentYaw = GetActorRotation().Yaw;
+		if (FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYaw, LastAppliedYaw)) > 1.f)
+		{
+			UE_LOG(LogTemp, Error, TEXT("%s: rotation stomped! wrote=%.1f found=%.1f montage=%d"),
+			       *GetName(), LastAppliedYaw, CurrentYaw,
+			       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Display, TEXT("%s: rotation did not stomp! wrote=%.1f found=%.1f montage=%d"),
+			       *GetName(), LastAppliedYaw, CurrentYaw,
+			       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
+			
+		}
+	}
 
 	if (!bUsingGamepadAim)
 	{
@@ -112,7 +142,7 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
 	if (AttackAction)
-		EIC->BindAction(AttackAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::DoAttack);
+		EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DoAttack);
 }
 
 
@@ -149,6 +179,11 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 
 void APZ_PlayerCharacter::DoAttack()
 {
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
+	}	
+	
 	PlayAttackMontage();
 	
 	if (HasAuthority())
@@ -217,6 +252,7 @@ void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 		if (DesiredFacing.IsNearlyZero()) return;
 		const float TargetYaw = DesiredFacing.Rotation().Yaw;
 		SetActorRotation(FRotator(0.f, TargetYaw, 0.f));
+		LastAppliedYaw = TargetYaw;
 
 		if (HasAuthority())
 		{
@@ -233,6 +269,7 @@ void APZ_PlayerCharacter::ApplyFacing(float DeltaTime)
 	if (HasAuthority())
 	{
 		SetActorRotation(FRotator(0.f, RepFacingYaw, 0.f));
+		LastAppliedYaw = RepFacingYaw;
 	}
 
 	// Purely simulated proxies (not owner, not server) do nothing here.
@@ -259,6 +296,7 @@ void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
 	// in a object-to-property table. We need to explicitly trigger the replication
 	// by setting it to dirty.
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
+	
 }
 
 void APZ_PlayerCharacter::AddInputMapping()

@@ -3,45 +3,69 @@
 
 #include "PZ_Shovel.h"
 
+#include "Animation/AnimInstance.h"
+#include "Components/BoxComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Engine.h"
 #include "SpicyBlueb/Player/PZ_PlayerCharacter.h"
 
 
 APZ_Shovel::APZ_Shovel()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	
+
 	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	RootComponent = SceneRoot;
-	
+
 	Handle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Handle"));
 	Handle->SetupAttachment(RootComponent);
-	
+	Handle->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
 	Blade = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Blade"));
 	Blade->SetupAttachment(RootComponent);
 	Blade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Blade->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // Do we need a custom profile?
-	Blade->OnComponentBeginOverlap.AddDynamic(this, &APZ_Shovel::OnBladeBeginOverlap);
+
+	HitVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("HitVolume"));
+	HitVolume->SetupAttachment(Blade);
+	HitVolume->SetBoxExtent(FVector(10.f, 10.f, 20.f));
+	HitVolume->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	HitVolume->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitVolume->OnComponentBeginOverlap.AddDynamic(this, &APZ_Shovel::OnHitVolumeBeginOverlap);
 }
 
-void APZ_Shovel::SetBladeCollisionEnabled(bool IsEnabled)
+void APZ_Shovel::SetHitVolumeEnabled(bool IsEnabled)
 {
 	if (IsEnabled) HitActorsThisSwing.Empty();
-	Blade->SetCollisionEnabled(IsEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+	HitVolume->SetCollisionEnabled(IsEnabled ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 }
 
-void APZ_Shovel::OnBladeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-                                     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+FVector APZ_Shovel::ComputeLaunchDirection(const FVector& Forward2D) const
+{
+	const float AngleRad = FMath::DegreesToRadians(LaunchAngle);
+	return (Forward2D * FMath::Cos(AngleRad) + FVector::UpVector * FMath::Sin(AngleRad)).GetSafeNormal();
+}
+
+void APZ_Shovel::OnHitVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+                                         UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+                                         const FHitResult& SweepResult)
 {
 	APZ_PlayerCharacter* Wielder = Cast<APZ_PlayerCharacter>(GetOwner());
 	ACharacter* Target = Cast<ACharacter>(OtherActor);
-	
+
 	if (!Wielder or !Target or Target == Wielder) return;
+	
+	// Only hit other actors once
 	if (HitActorsThisSwing.Contains(Target)) return;
 	HitActorsThisSwing.Add(Target);
 	
-	const FVector LaunchDirection = Wielder->GetActorForwardVector().RotateAngleAxis(-LaunchAngle, Wielder->GetActorRightVector());
-	Target->LaunchCharacter(LaunchDirection * LaunchForce, true, true);
+	// Testing here. Something is changing actor forward after the APZ_PlayerCharacter::Tick, presumably
+	// it is the Character Movement Component. What could be the issue is that the montage has some kind of root motion
+	const FVector ActorForward = Wielder->GetActorForwardVector().GetSafeNormal2D();
+	bool IsTrueForward = ActorForward == FVector::ForwardVector;
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, IsTrueForward ? FColor::Red : FColor::Yellow, FString::Printf(TEXT("Wielder Fwd: %s"), *ActorForward.ToCompactString()));
+
+	// Launch the other player into the air
+	FVector LaunchVelocity = ComputeLaunchDirection(Wielder->GetFacingDirection().GetSafeNormal2D()) * LaunchForce;
+	Target->LaunchCharacter(LaunchVelocity, true, true);
 }
-
-
