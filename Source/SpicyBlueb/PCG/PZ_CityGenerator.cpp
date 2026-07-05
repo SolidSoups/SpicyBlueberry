@@ -33,6 +33,30 @@ void APZ_CityGenerator::RandomizeSeedAndRegenerate()
 	RunGeneration();
 }
 
+TArray<FVector> APZ_CityGenerator::GetRestaurantSpawns(int32 NumPlayers) const
+{
+	TArray<FVector> Out;
+	if (Blocks.Num() == 0 || NumPlayers <= 0) return Out;
+	
+	for (int32 i = 0; i < NumPlayers; ++i)
+	{
+		const int32 Idx = (i * Blocks.Num()) / NumPlayers;
+		Out.Add(Blocks[Idx].Center);
+	}
+	return Out;
+}
+
+TArray<FVector> APZ_CityGenerator::GetDeliveryCandidates() const
+{
+	TArray<FVector> Out;
+	Out.Reserve(Blocks.Num());
+	for (const FPZ_Block& B : Blocks)
+	{
+		Out.Add(B.Center);
+	}
+	return Out;
+}
+
 void APZ_CityGenerator::BeginPlay()
 {
 	Super::BeginPlay();
@@ -73,6 +97,9 @@ void APZ_CityGenerator::RunGeneration()
 	{
 		DrawDebugNetwork();
 	}
+	
+	bCityReady = true;
+	OnCityGenerated.Broadcast();
 }
 
 void APZ_CityGenerator::ScatterPoints(FRandomStream& Rng, TArray<FVector2D>& OutPoints) const

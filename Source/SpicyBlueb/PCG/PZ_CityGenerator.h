@@ -7,6 +7,8 @@
 class UPCGComponent;
 class USplineComponent;
 
+DECLARE_MULTICAST_DELEGATE(FPZ_OnCityGenerated);
+
 USTRUCT()
 struct FPZ_Block
 {
@@ -58,6 +60,12 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "City|Seed")
 	void RandomizeSeedAndRegenerate();
 
+	bool bCityReady = false;
+
+	FPZ_OnCityGenerated OnCityGenerated;
+	TArray<FVector> GetRestaurantSpawns(int32 NumPlayers) const;
+	TArray<FVector> GetDeliveryCandidates() const;
+	
 protected:
 	virtual void BeginPlay() override;
 	
