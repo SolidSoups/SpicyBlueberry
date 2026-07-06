@@ -4,7 +4,7 @@
 #include "SpicyBlueb/Core/GameState/PZ_GameState.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerState.h"
 #include "SpicyBlueb/PCG/PZ_CityGenerator.h"
-#include "SpicyBlueb/Delivery/PZ_DeliveryManager.h"
+#include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "EngineUtils.h"
 #include "TimerManager.h"
@@ -57,24 +57,20 @@ void APZ_GameModeBase::OnCityReady()
 	SpawnRestaurants();
 
 	// Spawn and initialize the delivery subsystem.
-	if (DeliveryManagerClass)
+	if (UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>())
 	{
-		DeliveryManager = GetWorld()->SpawnActor<APZ_DeliveryManager>(DeliveryManagerClass);
-		if (DeliveryManager)
+		// Gather restaurant spots so delivery points don't spawn on them.
+		TArray<FVector> RestaurantLocations;
+		RestaurantLocations.Reserve(Restaurants.Num());
+		for (const TObjectPtr<APZ_Restaurant>& R : Restaurants)
 		{
-			// Gather restaurant spots so delivery points don't spawn on them.
-			TArray<FVector> RestaurantLocations;
-			RestaurantLocations.Reserve(Restaurants.Num());
-			for (const TObjectPtr<APZ_Restaurant>& R : Restaurants)
+			if (R)
 			{
-				if (R)
-				{
-					RestaurantLocations.Add(R->GetActorLocation());
-				}
+				RestaurantLocations.Add(R->GetActorLocation());
 			}
-
-			DeliveryManager->Initialize(City, RestaurantLocations);
 		}
+
+		DeliverySS->StartCity(City, RestaurantLocations);
 	}
 
 	StartMatch();
@@ -109,7 +105,10 @@ void APZ_GameModeBase::SpawnRestaurants()
 void APZ_GameModeBase::StartMatch()
 {
 	APZ_GameState* GS = GetPZGameState();
-	if (!GS || !DeliveryManager) return;
+	if (!GS) return;
+	
+	UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>();
+	if (!DeliverySS) return;
 
 	GS->MatchTimeRemaining = MatchLengthSeconds;
 	GS->MatchPhase = EPZ_MatchPhase::InProgress;
@@ -119,7 +118,7 @@ void APZ_GameModeBase::StartMatch()
 	{
 		if (APZ_PlayerState* PZPS = Cast<APZ_PlayerState>(PS))
 		{
-			DeliveryManager->IssueBatch(PZPS);
+			DeliverySS->IssueBatch(PZPS);
 		}
 	}
 

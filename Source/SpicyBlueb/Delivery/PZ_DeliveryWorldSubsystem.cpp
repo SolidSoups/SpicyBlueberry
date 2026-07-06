@@ -1,7 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "PZ_DeliveryManager.h"
+#include "PZ_DeliveryWorldSubsystem.h"
 #include "PZ_DeliveryPoint.h"
+#include "PZ_DeliverySettings.h"
 #include "Engine/Engine.h"
 #include "SpicyBlueb/Delivery/PZ_DeliveryTypes.h"
 #include "SpicyBlueb/PCG/PZ_CityGenerator.h"
@@ -9,22 +10,32 @@
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "Engine/World.h"
 
-APZ_DeliveryManager::APZ_DeliveryManager()
+void UPZ_DeliveryWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-	PrimaryActorTick.bCanEverTick = false;
-	bReplicates = false;
+	Super::Initialize(Collection);
+
+	// Initialize settings from ProjectSettings
+	if (const UPZ_DeliverySettings* Settings = GetDefault<UPZ_DeliverySettings>())
+	{
+		MinOrdersPerBatch = Settings->MinOrdersPerBatch;
+		MaxOrdersPerBatch = Settings->MaxOrdersPerBatch;
+		ActivePointCount = Settings->ActivePointCount;
+		MinRestaurantClearance = Settings->MinRestaurantClearance;
+		FirstDeliveryBonus = Settings->FirstDeliveryBonus;
+		MaxTimeBonus = Settings->MaxTimeBonus;
+		TimeBonusWindow = Settings->TimeBonusWindow;
+		DeliveryPointClass = Settings->DeliveryPointClass;
+	}
 }
 
-void APZ_DeliveryManager::Initialize(APZ_CityGenerator* InCity, const TArray<FVector>& RestaurantLocations)
+void UPZ_DeliveryWorldSubsystem::StartCity(APZ_CityGenerator* CityGenerator, const TArray<FVector>& RestaurantLocations)
 {
-	if (!HasAuthority()) return;
-	City = InCity;
+	City = CityGenerator;
 	if (!City) return;
-	
-	FreeCandidates = City->GetDeliveryCandidates();
-	
+
+	FreeDeliveryCandidates = City->GetDeliveryCandidates();
 	const float ClearSq = MinRestaurantClearance * MinRestaurantClearance;
-	FreeCandidates.RemoveAll([&](const FVector& C)
+	FreeDeliveryCandidates.RemoveAll([&](const FVector& C)
 	{
 		for (const FVector& R : RestaurantLocations)
 		{
@@ -39,31 +50,45 @@ void APZ_DeliveryManager::Initialize(APZ_CityGenerator* InCity, const TArray<FVe
 	SpawnPoints();
 }
 
-void APZ_DeliveryManager::SpawnPoints()
+TArray<FVector> UPZ_DeliveryWorldSubsystem::GetDeliveryLocations() const
 {
-	if (!DeliveryPointClass || FreeCandidates.Num() == 0) return;
+	TArray<FVector> DeliveryLocations;
+	for (const TObjectPtr<APZ_DeliveryPoint>& DeliveryPoint : ActiveDeliveryPoints)
+	{
+		if (DeliveryPoint)
+		{
+			DeliveryLocations.Add(DeliveryPoint->GetActorLocation());
+		}
+	}
+	return DeliveryLocations;
+}
 
-	const int32 Count = FMath::Min(ActivePointCount, FreeCandidates.Num());
+void UPZ_DeliveryWorldSubsystem::SpawnPoints()
+{
+	if (!DeliveryPointClass || FreeDeliveryCandidates.Num() == 0) return;
+
+	const int32 Count = FMath::Min(ActivePointCount, FreeDeliveryCandidates.Num());
 	for (int32 i = 0; i < Count; ++i)
 	{
 		// Spread picks across the candidate list.
-		const int32 Idx = (i * FreeCandidates.Num()) / Count;
-		const FVector Loc = FreeCandidates[Idx];
+		const int32 Idx = (i * FreeDeliveryCandidates.Num()) / Count;
+		const FVector Loc = FreeDeliveryCandidates[Idx];
 
 		FActorSpawnParameters Params;
+		
 		APZ_DeliveryPoint* P = GetWorld()->SpawnActor<APZ_DeliveryPoint>(
 			DeliveryPointClass, Loc, FRotator::ZeroRotator, Params);
 		if (P)
 		{
-			ActivePoints.Add(P);
-			FreeCandidates.RemoveAll([&](const FVector& C) { return C.Equals(Loc, 1.f); });
+			ActiveDeliveryPoints.Add(P);
+			FreeDeliveryCandidates.RemoveAll([&](const FVector& C) { return C.Equals(Loc, 1.f); });
 		}
 	}
 }
 
-void APZ_DeliveryManager::IssueBatch(APZ_PlayerState* Player)
+void UPZ_DeliveryWorldSubsystem::IssueBatch(APZ_PlayerState* Player) const
 {
-	if (!HasAuthority() || !Player || ActivePoints.Num() == 0) return;
+	if (!Player || ActiveDeliveryPoints.Num() == 0) return;
 
 	Player->ActiveOrders.Reset();
 
@@ -83,12 +108,12 @@ void APZ_DeliveryManager::IssueBatch(APZ_PlayerState* Player)
 	}
 }
 
-int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint* Point, APZ_Pizza* Pizza)
+int32 UPZ_DeliveryWorldSubsystem::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint* Point, APZ_Pizza* Pizza)
 {
-	if (!HasAuthority() || !Player || !Point || !Pizza) return 0;
+	if (!Player || !Point || !Pizza) return 0;
 
 	// The point must be a currently active delivery point.
-	if (!ActivePoints.Contains(Point))
+	if (!ActiveDeliveryPoints.Contains(Point))
 	{
 		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Not an active delivery point"));
 		return 0;
@@ -105,7 +130,7 @@ int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint
 			break;
 		}
 	}
-	
+
 	if (!Match)
 	{
 		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("At point but no order routes here"));
@@ -114,9 +139,11 @@ int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint
 
 	const int32 Reward = ComputeReward(*Match, Pizza, Point);
 	Player->AddScore(Reward);
-	
+
 	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Green, FString::Printf(TEXT("DELIVERED! +%d  (quality=%.0f)"), Reward, Pizza->Quality));
+		GEngine->AddOnScreenDebugMessage(-1, 4.f, FColor::Green,
+		                                 FString::Printf(
+			                                 TEXT("DELIVERED! +%d  (quality=%.0f)"), Reward, Pizza->Quality));
 
 	Match->bFulfilled = true;
 
@@ -150,30 +177,30 @@ int32 APZ_DeliveryManager::TryDeliver(APZ_PlayerState* Player, APZ_DeliveryPoint
 	return Reward;
 }
 
-void APZ_DeliveryManager::RelocatePoint(APZ_DeliveryPoint* Point)
+void UPZ_DeliveryWorldSubsystem::RelocatePoint(APZ_DeliveryPoint* Point)
 {
 	if (!Point) return;
 
 	// Return the point's current spot to the free pool, take a fresh one.
 	const FVector Old = Point->GetActorLocation();
 
-	if (FreeCandidates.Num() == 0)
+	if (FreeDeliveryCandidates.Num() == 0)
 	{
 		// Nowhere fresh to go; just reset its first-delivery flag in place.
 		Point->ResetForNewBatch();
 		return;
 	}
 
-	const int32 Pick = FMath::RandRange(0, FreeCandidates.Num() - 1);
-	const FVector NewLoc = FreeCandidates[Pick];
-	FreeCandidates.RemoveAt(Pick);
-	FreeCandidates.Add(Old);
+	const int32 Pick = FMath::RandRange(0, FreeDeliveryCandidates.Num() - 1);
+	const FVector NewLoc = FreeDeliveryCandidates[Pick];
+	FreeDeliveryCandidates.RemoveAt(Pick);
+	FreeDeliveryCandidates.Add(Old);
 
 	Point->Relocate(NewLoc);
 	Point->ResetForNewBatch();
 }
 
-int32 APZ_DeliveryManager::ComputeReward(const FPZ_Order& Order, APZ_Pizza* Pizza, APZ_DeliveryPoint* Point) const
+int32 UPZ_DeliveryWorldSubsystem::ComputeReward(const FPZ_Order& Order, APZ_Pizza* Pizza, APZ_DeliveryPoint* Point) const
 {
 	// Quality scales the base.
 	const float QualityFrac = Pizza ? FMath::Clamp(Pizza->Quality / 100.f, 0.f, 1.f) : 1.f;

@@ -5,6 +5,7 @@
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
@@ -31,6 +32,16 @@ APZ_Restaurant::APZ_Restaurant()
 	CounterPoint = CreateDefaultSubobject<USceneComponent>(TEXT("CounterPoint"));
 	CounterPoint->SetupAttachment(Mesh);
 	CounterPoint->SetRelativeLocation(FVector(150.f, 0.f, 100.f));
+	
+	// Create a text component too clearly see restaurant location
+	TextComp = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TextComp"));
+	TextComp->SetupAttachment(RootComponent);
+	TextComp->SetText(FText::FromString("Sir, this is a restaurant."));
+	TextComp->SetHorizontalAlignment(EHTA_Center);
+	const FRotator TopDownBackward(55.f, 225.f, 0.f); // TODO: make this automatically become opposite camera rotation
+	TextComp->SetWorldRotation(TopDownBackward);
+	TextComp->SetRelativeLocation(FVector(0.f, 0.f, 100.f));
+	TextComp->SetWorldSize(48.f);
 }
 
 void APZ_Restaurant::BeginPlay()

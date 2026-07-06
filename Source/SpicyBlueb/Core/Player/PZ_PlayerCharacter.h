@@ -51,6 +51,7 @@ public:
 	}
 
 	virtual void BeginPlay() override;
+	void DrawHeadingToNearestDeliveryPoint();
 	virtual void Tick(float DeltaTime) override;
 	virtual void PawnClientRestart() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;

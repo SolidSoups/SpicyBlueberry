@@ -17,7 +17,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
-#include "SpicyBlueb/Delivery/PZ_DeliveryManager.h"
+#include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
@@ -82,7 +82,7 @@ FVector APZ_PlayerCharacter::GetFacingDirection() const
 {
 	if (IsLocallyControlled())
 		return FRotator(0.f, LastAppliedYaw, 0.f).Vector();
-	
+
 	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
 }
 
@@ -98,32 +98,40 @@ void APZ_PlayerCharacter::CarryPizza(APZ_Pizza* Pizza)
 void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	AddInputMapping();
 	SpawnAndAttachShovel();
 	LastAppliedYaw = GetActorRotation().Yaw;
 }
 
+void APZ_PlayerCharacter::DrawHeadingToNearestDeliveryPoint()
+{
+	UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>();
+	if (!DeliverySS)
+		return ;
+
+	// Find the closest delivery location. Probably the most obnoxious way to do it
+	TArray<FVector> DeliveryLocations = DeliverySS->GetDeliveryLocations();
+	if (DeliveryLocations.Num() == 0) return ;
+	
+	const FVector MyLocation = GetActorLocation();
+	const FVector* Closest = Algo::MinElementBy(DeliveryLocations, 
+	                                            [MyLocation](const FVector& Loc)
+	                                            {
+		                                            return FVector::DistSquared(MyLocation, Loc);
+	                                            });
+	
+	// Did we find a closest location?
+	if (Closest)
+	{
+		const FVector Heading = (*Closest - MyLocation).GetSafeNormal2D();		
+		DrawDebugDirectionalArrow(GetWorld(), MyLocation, MyLocation + Heading * 200.f, 50.f, FColor::Yellow, false, 0.f, 0U, 5.f);	
+	}
+}
+
 void APZ_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	//if (GetLocalRole() != ROLE_SimulatedProxy)
-	//{
-	//	const float CurrentYaw = GetActorRotation().Yaw;
-	//	if (FMath::Abs(FMath::FindDeltaAngleDegrees(CurrentYaw, LastAppliedYaw)) > 1.f)
-	//	{
-	//		UE_LOG(LogTemp, Error, TEXT("%s: rotation stomped! wrote=%.1f found=%.1f montage=%d"),
-	//		       *GetName(), LastAppliedYaw, CurrentYaw,
-	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Display, TEXT("%s: rotation did not stomp! wrote=%.1f found=%.1f montage=%d"),
-	//		       *GetName(), LastAppliedYaw, CurrentYaw,
-	//		       (GetMesh()->GetAnimInstance() && GetMesh()->GetAnimInstance()->IsAnyMontagePlaying()) ? 1 : 0);
-	//		
-	//	}
-	//}
 
 	if (!bUsingGamepadAim)
 	{
@@ -131,6 +139,11 @@ void APZ_PlayerCharacter::Tick(float DeltaTime)
 	}
 
 	ApplyFacing(DeltaTime);
+
+
+	// # Debug tell us nearest delivery point
+	
+	DrawHeadingToNearestDeliveryPoint();
 }
 
 void APZ_PlayerCharacter::PawnClientRestart()
@@ -197,10 +210,10 @@ void APZ_PlayerCharacter::DoAttack()
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
-	}	
-	
+	}
+
 	PlayAttackMontage();
-	
+
 	if (HasAuthority())
 	{
 		RepAttackTrigger++;
@@ -319,10 +332,11 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 			APZ_PlayerState* PS = GetPlayerState<APZ_PlayerState>();
 			if (PS)
 			{
-				if (APZ_GameModeBase* GM = GetWorld()->GetAuthGameMode<APZ_GameModeBase>())
-					if (APZ_DeliveryManager* Mgr = GM->GetDeliveryManager())
-						if (Mgr->TryDeliver(PS, OverlappingDeliveryPoint, CarriedPizza) > 0)
-							ClearCarriedPizza();
+				if (UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>())
+				{
+					if (DeliverySS->TryDeliver(PS, OverlappingDeliveryPoint, CarriedPizza) > 0)
+						ClearCarriedPizza();
+				}
 			}
 		}
 		else if (GEngine)
@@ -346,11 +360,11 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 void APZ_PlayerCharacter::Server_DoAttack_Implementation(float ClientFacingYaw)
 {
 	// we want all clients to use this Yaw for the attack calculations
-	RepFacingYaw = ClientFacingYaw;	
+	RepFacingYaw = ClientFacingYaw;
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
-	
-	PlayAttackMontage();	
-	
+
+	PlayAttackMontage();
+
 	RepAttackTrigger++;
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepAttackTrigger, this);
 }
@@ -359,10 +373,9 @@ void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
 {
 	RepFacingYaw = NewYaw;
 	// Mark RepFacingYaw as dirty. Iris keeps track of all dirty properties
-	// in a object-to-property table. We need to explicitly trigger the replication
+	// in an object-to-property table. We need to explicitly trigger the replication
 	// by setting it to dirty.
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
-	
 }
 
 void APZ_PlayerCharacter::AddInputMapping()

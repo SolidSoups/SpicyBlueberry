@@ -544,13 +544,19 @@ bool APZ_CityGenerator::ClipSegmentToBounds(FVector2D& A, FVector2D& B, const FV
 	// Liang-Barsky segment clip against the axis-aligned city rectangle.
 	const float HX = HalfExtent.X;
 	const float HY = HalfExtent.Y;
+	
 
 	float T0 = 0.f, T1 = 1.f;
 	const float DX = B.X - A.X;
 	const float DY = B.Y - A.Y;
 
 	const float P[4] = {-DX, DX, -DY, DY};
-	const float Q[4] = {A.X + HX, HX - A.X, A.Y + HY, HY - A.Y};
+	const float Q[4] = {
+		static_cast<float>(A.X) + HX,
+		HX - static_cast<float>(A.X),
+		static_cast<float>(A.Y) + HY,
+		HY - static_cast<float>(A.Y)
+	};
 
 	for (int32 i = 0; i < 4; ++i)
 	{

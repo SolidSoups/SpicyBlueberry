@@ -19,8 +19,6 @@ class SPICYBLUEB_API APZ_GameModeBase : public AGameModeBase
 
 public:
 	APZ_GameModeBase();
-	
-	APZ_DeliveryManager* GetDeliveryManager() const { return DeliveryManager; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -31,18 +29,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Classes")
 	TSubclassOf<APZ_Restaurant> RestaurantClass;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Classes")
-	TSubclassOf<APZ_DeliveryManager> DeliveryManagerClass;
-
 private:
 	UPROPERTY()
 	TObjectPtr<APZ_CityGenerator> City;
 
 	UPROPERTY()
 	TArray<TObjectPtr<APZ_Restaurant>> Restaurants;
-
-	UPROPERTY()
-	TObjectPtr<APZ_DeliveryManager> DeliveryManager;
 
 	FTimerHandle MatchTickTimer;
 

@@ -43,6 +43,9 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Restaurant")
 	TObjectPtr<USceneComponent> CounterPoint;
+	
+	UPROPERTY()
+	TObjectPtr<class UTextRenderComponent> TextComp;
 
 private:
 	bool IsOwnedBy(const APZ_PlayerCharacter* Char) const;

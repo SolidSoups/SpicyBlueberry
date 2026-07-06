@@ -11,7 +11,7 @@ public class SpicyBlueb : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core","CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "PCG", "PhysicsControl",
-			"OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemSteam"
+			"OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemSteam", "DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "NetCore", "Slate", "SlateCore" });
