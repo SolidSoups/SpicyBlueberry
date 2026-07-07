@@ -527,3 +527,8 @@ MigrationBackup/
 # Ignore build directory
 /Windows/
 *.rar
+
+# Generated solution files
+*.slnx
+*.sln
+*.sln.DotSettings.user
