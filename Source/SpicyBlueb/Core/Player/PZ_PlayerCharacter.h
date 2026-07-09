@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "PZ_PlayerCharacter.generated.h"
 
+class UPZ_InventoryComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
@@ -128,6 +129,9 @@ protected:
 	// Animation
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<UAnimMontage> AttackMontage;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UPZ_InventoryComponent> InventoryComponent;
 
 private:
 	void SpawnAndAttachShovel();
@@ -172,4 +176,5 @@ private:
 	
 	FVector DesiredFacing = FVector::ForwardVector;
 	bool bUsingGamepadAim = false;
+	
 };

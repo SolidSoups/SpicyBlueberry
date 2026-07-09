@@ -7,6 +7,7 @@
 #include "PZ_PlayerController.h"
 #include "Animation/AnimInstance.h"
 #include "PZ_PlayerState.h"
+#include "VectorUtil.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
@@ -19,6 +20,7 @@
 #include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
 #include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
+#include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
 
@@ -44,6 +46,8 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
+	
+	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
 }
 
 void APZ_PlayerCharacter::OnConstruction(const FTransform& Transform)
