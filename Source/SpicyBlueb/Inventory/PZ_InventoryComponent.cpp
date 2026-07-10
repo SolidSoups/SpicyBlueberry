@@ -12,58 +12,65 @@ UPZ_InventoryComponent::UPZ_InventoryComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+void UPZ_InventoryComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	constexpr int32 MAX_ITEMS = 2;	
+	Items.SetNum(MAX_ITEMS);
+}
+
 void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 {
-	if (Items.Num() >= MaxItems)
+	// find the first unoccupied slot
+	int32 FirstSlot = -1;
+	for (int32 i=0; i < Items.Num(); i++)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Player is holding max items already"));
-		return;
+		if (!Items.IsValidIndex(i) or Items[i].IsOccupied)	
+			continue;
+		
+		FirstSlot = i;
+		break;
 	}
+	
+	if (FirstSlot <= -1)
+		return;
 
-	Items.Add(ItemId);
-
+	// occupy the slot
+	Items[FirstSlot].IsOccupied = true;
+	Items[FirstSlot].AssetId = ItemId;
+	
+	// lazy load the asset into memory
 	UAssetManager::Get().LoadPrimaryAsset(
 		ItemId,
 		TArray<FName>(),
-		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, ItemId));
+		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded,  FirstSlot, ItemId));
 }
 
-TOptional<FPrimaryAssetId> UPZ_InventoryComponent::TryPop(int32 Slot)
+FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 {
-	if (Slot < 0 or Slot >= Items.Num())
+	if (Items.IsValidIndex(Slot))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Cannot remove an item from an unused slot (%i)"), Slot);
-		return TOptional<FPrimaryAssetId>();
+		return FPrimaryAssetId{};
 	}
 
-	FPrimaryAssetId ItemId = Items[Slot];
-	Items.RemoveAt(Slot); // TODO [Elias Brown]: Removing an item shouldn't change ahead elements indices
+	// release our asset ref count
+	FPrimaryAssetId AssetId = Items[Slot].AssetId;
+	UAssetManager::Get().UnloadPrimaryAsset(AssetId);
+	
+	OnItemRemovedDelegate.Broadcast(Slot);
+	
+	// Reset slot to blank state
+	Items[Slot].IsOccupied = false;
+	Items[Slot].AssetId = FPrimaryAssetId{};
 
-	// DEBUG
-	UPZ_ItemData* Data = Cast<UPZ_ItemData>(UAssetManager::Get().GetPrimaryAssetObject(ItemId));
-	if (IsValid(Data))
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green,
-		                                 FString::Printf(
-			                                 TEXT("Removed item (slot=%i): %s"), Slot, *Data->DisplayName.ToString()));
-	}
-
-	UAssetManager::Get().UnloadPrimaryAsset(ItemId);
-
-	OnItemRemovedDelegate.Broadcast(ItemId);
-
-	return ItemId;
+	return AssetId;
 }
 
-void UPZ_InventoryComponent::OnItemLoaded(FPrimaryAssetId ItemId)
+void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId) const
 {
-	UPZ_ItemData* Data = Cast<UPZ_ItemData>(UAssetManager::Get().GetPrimaryAssetObject(ItemId));
-	if (IsValid(Data))
-	{
-		// TODO [Elias Brown]: This is not a valid way to find a slot if we have duplicate items in both slots
-		int32 Slot = Items.Find(ItemId);
-		GEngine->AddOnScreenDebugMessage(-1, 20.0f, FColor::Green,
-		                                 FString::Printf(TEXT("New item loaded (slot=%i): %s"), Slot, *Data->DisplayName.ToString()));
-	}
-	OnItemLoadedDelegate.Broadcast(ItemId, Data);
+	UPZ_ItemDataAsset* ItemData = Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId));
+	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, FString::Printf(TEXT("Loaded item at slot %i"), Slot));
+	OnItemLoadedDelegate.Broadcast(Slot, ItemData);
 }

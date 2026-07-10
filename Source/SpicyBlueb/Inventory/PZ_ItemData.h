@@ -13,7 +13,7 @@ class UTexture2D;
  * 
  */
 UCLASS()
-class SPICYBLUEB_API UPZ_ItemData : public UPrimaryDataAsset
+class SPICYBLUEB_API UPZ_ItemDataAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 	

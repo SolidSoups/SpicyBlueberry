@@ -6,24 +6,40 @@
 #include "Components/ActorComponent.h"
 #include "PZ_InventoryComponent.generated.h"
 
-class UPZ_ItemData;
+class UPZ_ItemDataAsset;
 
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnItemLoaded, FPrimaryAssetId, UPZ_ItemData*)
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemRemoved, FPrimaryAssetId)
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnItemLoaded, const int32 /* Slot */, const UPZ_ItemDataAsset* /* ItemId */)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemRemoved, const int32 /* Slot */)
+
+USTRUCT()
+struct FPZ_InventorySlot
+{
+	GENERATED_BODY()	
+		
+	UPROPERTY()
+	FPrimaryAssetId AssetId;
+	
+	UPROPERTY()
+	bool IsOccupied = false;
+};
+
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SPICYBLUEB_API UPZ_InventoryComponent : public UActorComponent
 {
+
+private:
 	GENERATED_BODY()
 
 public:
 	UPZ_InventoryComponent();
+	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	void AddItem(FPrimaryAssetId ItemId);
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	TOptional<FPrimaryAssetId> TryPop(int32 Slot);
+	FPrimaryAssetId TryPopItem(int32 Slot);
 	
 	FOnItemLoaded OnItemLoadedDelegate;
 	FOnItemRemoved OnItemRemovedDelegate;
@@ -32,8 +48,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 MaxItems = 2;
 	
-	void OnItemLoaded(FPrimaryAssetId ItemId);
+	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId) const;
 
 	UPROPERTY()
-	TArray<FPrimaryAssetId> Items;
+	TArray<FPZ_InventorySlot> Items;
 };
