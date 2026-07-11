@@ -40,7 +40,8 @@ void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 	Items[FirstSlot].IsOccupied = true;
 	Items[FirstSlot].AssetId = ItemId;
 	
-	// lazy load the asset into memory
+	// Note [Elias Brown]: Although the inventory is not accessing the item data, it is important that the item
+	// is loaded for the entire stay within the inventory
 	UAssetManager::Get().LoadPrimaryAsset(
 		ItemId,
 		TArray<FName>(),
@@ -49,7 +50,7 @@ void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 
 FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 {
-	if (Items.IsValidIndex(Slot))
+	if (!Items.IsValidIndex(Slot))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Cannot remove an item from an unused slot (%i)"), Slot);
 		return FPrimaryAssetId{};
@@ -71,6 +72,5 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId) const
 {
 	UPZ_ItemDataAsset* ItemData = Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId));
-	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, FString::Printf(TEXT("Loaded item at slot %i"), Slot));
 	OnItemLoadedDelegate.Broadcast(Slot, ItemData);
 }

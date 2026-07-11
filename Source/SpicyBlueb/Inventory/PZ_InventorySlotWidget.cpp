@@ -18,7 +18,6 @@ void UPZ_InventorySlotWidget::SetItemData(const UPZ_ItemDataAsset* ItemAsset)
 		return;
 	}
 	
-	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, FString::Printf(TEXT("SetItemData for item %s"), *ItemAsset->DisplayName.ToString()));
 	IconLoadHandle = UAssetManager::Get().GetStreamableManager().RequestAsyncLoad(
 		ItemAsset->Icon.ToSoftObjectPath(),
 		FStreamableDelegate::CreateWeakLambda(this, [this]()
