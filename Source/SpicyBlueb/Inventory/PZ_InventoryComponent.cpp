@@ -3,6 +3,7 @@
 
 #include "PZ_InventoryComponent.h"
 
+#include "PZ_InventorySettings.h"
 #include "PZ_ItemData.h"
 #include "Engine/AssetManager.h"
 #include "Engine/Engine.h"
@@ -15,9 +16,16 @@ UPZ_InventoryComponent::UPZ_InventoryComponent()
 void UPZ_InventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	constexpr int32 MAX_ITEMS = 2;	
-	Items.SetNum(MAX_ITEMS);
+
+	if (const auto* Settings = GetDefault<UPZ_InventorySettings>())
+	{
+		Items.SetNum(Settings->MaxInventorySlots);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Pizza Settings is NULL"));
+		Items.SetNum(2);
+	}
 }
 
 void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)

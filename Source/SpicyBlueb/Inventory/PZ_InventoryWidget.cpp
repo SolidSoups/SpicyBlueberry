@@ -3,6 +3,7 @@
 
 #include "PZ_InventoryWidget.h"
 #include "PZ_InventoryComponent.h"
+#include "PZ_InventorySettings.h"
 #include "PZ_InventorySlotWidget.h"
 #include "Components/UniformGridPanel.h"
 #include "Components/VerticalBox.h"
@@ -25,13 +26,21 @@ void UPZ_InventoryWidget::NativeConstruct()
 	InventoryComponent->OnItemLoadedDelegate.AddUObject(this, &UPZ_InventoryWidget::HandleItemLoaded);
 	InventoryComponent->OnItemRemovedDelegate.AddUObject(this, &UPZ_InventoryWidget::HandleItemUnloaded);	
 
-	constexpr int32 MAX_ITEMS = 2;
+	int32 MaxItems = 2;
+	if (const auto* Settings = GetDefault<UPZ_InventorySettings>())
+	{
+		MaxItems = Settings->MaxInventorySlots;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("No max items for inventory slots in Settings"));
+	}
 	
 	SlotVerticalBox->ClearChildren();
 	SlotWidgets.Reset();
-	SlotWidgets.Reserve(MAX_ITEMS);
+	SlotWidgets.Reserve(MaxItems);
 	
-	for (int32 i=0; i<MAX_ITEMS; i++)
+	for (int32 i=0; i<MaxItems; i++)
 	{
 		UPZ_InventorySlotWidget* SlotWidget = CreateWidget<UPZ_InventorySlotWidget>(GetOwningPlayer(), SlotWidgetClass);
 		SlotVerticalBox->AddChildToVerticalBox(SlotWidget);

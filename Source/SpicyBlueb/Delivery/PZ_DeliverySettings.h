@@ -11,7 +11,7 @@
 /**
  * 
  */
-UCLASS(Config=Game, DefaultConfig, meta=(DisplayName="Delivery Settings"))
+UCLASS(Config=Game, DefaultConfig, meta=(DisplayName="Pizza - Delivery Settings"))
 class SPICYBLUEB_API UPZ_DeliverySettings : public UDeveloperSettings
 {
 	GENERATED_BODY()

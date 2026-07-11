@@ -6,9 +6,6 @@
 #include "Engine/DataAsset.h"
 #include "PZ_ItemData.generated.h"
 
-class UStaticMesh;
-class UTexture2D;
-
 /**
  * 
  */
@@ -22,8 +19,8 @@ public:
 	FText DisplayName;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item")
-	TSoftObjectPtr<UStaticMesh> Mesh;
+	TSoftClassPtr<class APZ_ItemDummy> DummyActorClass;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item")
-	TSoftObjectPtr<UTexture2D> Icon;
+	TSoftObjectPtr<class UTexture2D> Icon;
 };

@@ -27,17 +27,17 @@ struct FPZ_InventorySlot
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SPICYBLUEB_API UPZ_InventoryComponent : public UActorComponent
 {
-
-private:
 	GENERATED_BODY()
 
 public:
 	UPZ_InventoryComponent();
 	virtual void BeginPlay() override;
 
+	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	void AddItem(FPrimaryAssetId ItemId);
 	
+	/* Removes an item from the given slot. If there is no item at that slot, or if the slot index is invalid, it will return an invalid asset id. */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	FPrimaryAssetId TryPopItem(int32 Slot);
 	
