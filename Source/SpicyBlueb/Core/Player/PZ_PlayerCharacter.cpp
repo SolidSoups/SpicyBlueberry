@@ -1,13 +1,11 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "PZ_PlayerCharacter.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "PZ_PlayerController.h"
 #include "Animation/AnimInstance.h"
 #include "PZ_PlayerState.h"
-#include "VectorUtil.h"
 #include "BaseGizmos/GizmoElementShared.h"
 #include "Camera/CameraComponent.h"
 #include "Chaos/AABBTree.h"
@@ -24,6 +22,7 @@
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 #include "SpicyBlueb/Inventory/PZ_InventorySettings.h"
+#include "SpicyBlueb/Inventory/PZ_ItemData.h"
 #include "SpicyBlueb/Inventory/PZ_ItemDummy.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
@@ -52,6 +51,9 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 
 	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
+	
+	ItemDropPoint = CreateDefaultSubobject<USceneComponent>(TEXT("Item Drop Point"));
+	ItemDropPoint->SetupAttachment(GetMesh());
 }
 
 void APZ_PlayerCharacter::OnConstruction(const FTransform& Transform)
@@ -194,6 +196,9 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	if (InteractAction)
 		EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::Interact);
 	
+	if (DropItemAction)
+		EnhancedInput->BindAction(DropItemAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DropItem);
+	
 	// Bind inventory slot actions
 	const auto* InventorySettings = GetDefault<UPZ_InventorySettings>();
 	const int32 MinNumSlotActions = FMath::Min(InventorySettings->MaxInventorySlots, SelectedSlotActions.Num());
@@ -273,6 +278,34 @@ void APZ_PlayerCharacter::Interact()
 	{
 		Server_Interact();
 	}
+}
+
+void APZ_PlayerCharacter::DropItem()
+{
+	if (!InventoryComponent)
+		return;
+	
+	int32 SelectedSlot = InventoryComponent->GetSelectedSlot();
+	UPZ_ItemDataAsset* ItemData = InventoryComponent->GetItemData(SelectedSlot);
+	if (!ItemData) return; // no item here
+	
+	// spawn dummy actor 
+	if (ItemData->DummyActorClass)
+	{
+		FVector SpawnLocation = ItemDropPoint->GetComponentLocation();		
+		FRotator SpawnRotation = ItemDropPoint->GetComponentRotation();
+		UClass* DummyClass = ItemData->DummyActorClass.LoadSynchronous(); // TODO: Better way to load the class
+		APZ_ItemDummy* NewActor = GetWorld()->SpawnActor<APZ_ItemDummy>(DummyClass, SpawnLocation, SpawnRotation);
+		
+		// add some drop force
+		if (NewActor)
+			if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
+			{
+				PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None, true);
+			}
+	}
+	
+	InventoryComponent->TryPopItem(SelectedSlot);
 }
 
 void APZ_PlayerCharacter::SelectInventorySlot(int32 Slot)
@@ -442,11 +475,11 @@ void APZ_PlayerCharacter::AddInputMappings()
 	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
 	if (!LocalPlayer) return;
 	
-	auto* EnhancedInputLPSS = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
-	if (!EnhancedInputLPSS) return;
+	auto* EnhancedInputSS = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+	if (!EnhancedInputSS) return;
 
 	if (DefaultMappingContext)
-		EnhancedInputLPSS->AddMappingContext(DefaultMappingContext, 0);
+		EnhancedInputSS->AddMappingContext(DefaultMappingContext, 0);
 	if (InventoryMappingContext)
-		EnhancedInputLPSS->AddMappingContext(InventoryMappingContext, 1);
+		EnhancedInputSS->AddMappingContext(InventoryMappingContext, 1);
 }

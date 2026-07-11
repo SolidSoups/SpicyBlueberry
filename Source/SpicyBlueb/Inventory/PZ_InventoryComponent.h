@@ -21,6 +21,9 @@ struct FPZ_InventorySlot
 	FPrimaryAssetId AssetId;
 	
 	UPROPERTY()
+	UPZ_ItemDataAsset* ItemData;
+	
+	UPROPERTY()
 	bool IsOccupied = false;
 };
 
@@ -43,6 +46,12 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	int32 GetSelectedSlot() const { return SelectedSlot;}
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	UPZ_ItemDataAsset* GetItemData(int32 Slot) const;
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	UPZ_ItemDataAsset* GetSelectedItemData() const;
 
 	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -60,7 +69,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 MaxItemSlots = 2; // default here only applies if settings not found
 	
-	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId) const;
+	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId);
 
 	UPROPERTY()
 	TArray<FPZ_InventorySlot> Items;

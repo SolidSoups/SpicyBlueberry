@@ -40,6 +40,23 @@ void UPZ_InventoryComponent::SelectSlot(int32 Slot)
 	OnSlotSelectedDelegate.Broadcast(Slot);
 }
 
+UPZ_ItemDataAsset* UPZ_InventoryComponent::GetItemData(int32 Slot) const
+{
+	if (Items.IsValidIndex(Slot))
+		return Items[Slot].ItemData;
+	
+	return nullptr;
+}
+
+UPZ_ItemDataAsset* UPZ_InventoryComponent::GetSelectedItemData() const
+{
+	if (Items.IsValidIndex(SelectedSlot))
+		return Items[SelectedSlot].ItemData;
+	
+	return nullptr;
+	
+}
+
 bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 {
 	if (!ItemId.IsValid())
@@ -65,6 +82,7 @@ bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 	// occupy the slot
 	Items[FirstSlot].IsOccupied = true;
 	Items[FirstSlot].AssetId = ItemId;
+	Items[FirstSlot].ItemData = nullptr; // will be filled in by OnItemLoaded delegate
 
 	// Note [Elias Brown]: Although the inventory is not accessing the item data, it is important that the item
 	// is loaded for the entire stay within the inventory
@@ -93,12 +111,14 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 	// Reset slot to blank state
 	Items[Slot].IsOccupied = false;
 	Items[Slot].AssetId = FPrimaryAssetId{};
+	Items[Slot].ItemData = nullptr;
 
 	return AssetId;
 }
 
-void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId) const
+void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId) 
 {
 	UPZ_ItemDataAsset* ItemData = Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId));
+	Items[Slot].ItemData = ItemData;
 	OnItemLoadedDelegate.Broadcast(Slot, ItemData);
 }

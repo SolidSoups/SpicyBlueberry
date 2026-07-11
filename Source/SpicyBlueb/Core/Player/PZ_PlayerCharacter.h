@@ -79,9 +79,13 @@ protected:
 	void Aim(const FInputActionValue& Value);
 	void DoAttack();
 	void Interact();
+	void DropItem();
 	void SelectInventorySlot(int32 Slot);
 	void AddInputMappings();
 
+	// Inventory
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
+	TObjectPtr<USceneComponent> ItemDropPoint;
 
 	// Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -111,6 +115,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* InteractAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* DropItemAction;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TArray<TObjectPtr<UInputAction>> SelectedSlotActions;
@@ -147,6 +154,10 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UPZ_InventoryComponent> InventoryComponent;
+	
+	// Inventory
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float DropImpulseStrength = 100.f;
 
 private:
 	void SpawnAndAttachShovel();
