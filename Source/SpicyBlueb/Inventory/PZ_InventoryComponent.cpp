@@ -21,40 +21,42 @@ void UPZ_InventoryComponent::BeginPlay()
 		MaxItemSlots = InventorySettings->MaxInventorySlots;
 	else
 		UE_LOG(LogTemp, Error, TEXT("Could not get inventory settings"));
-	
+
 	Items.SetNum(MaxItemSlots);
-	
+
 	// Broadcast item selection so UI defaults to zero index
 	OnSlotSelectedDelegate.Broadcast(0);
 }
 
-void UPZ_InventoryComponent::SelectSlot(int32 Slot)
+void UPZ_InventoryComponent::SetSelectedSlot(int32 Slot)
 {
-	if (Slot < 0 or Slot >= MaxItemSlots)
+	if (!Items.IsValidIndex(Slot))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Slot out of range"));
 		return;
 	}
-	
-	SelectedSlot = Slot;		
+
+	SelectedSlot = Slot;
 	OnSlotSelectedDelegate.Broadcast(Slot);
 }
 
 UPZ_ItemDataAsset* UPZ_InventoryComponent::GetItemData(int32 Slot) const
 {
-	if (Items.IsValidIndex(Slot))
-		return Items[Slot].ItemData;
-	
-	return nullptr;
+	if (!Items.IsValidIndex(Slot))
+		return nullptr;
+
+	if (!Items[Slot].IsOccupied)
+		return nullptr;
+
+	return Items[Slot].ItemData;
 }
 
 UPZ_ItemDataAsset* UPZ_InventoryComponent::GetSelectedItemData() const
 {
 	if (Items.IsValidIndex(SelectedSlot))
 		return Items[SelectedSlot].ItemData;
-	
+
 	return nullptr;
-	
 }
 
 bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
@@ -116,7 +118,7 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 	return AssetId;
 }
 
-void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId) 
+void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId)
 {
 	UPZ_ItemDataAsset* ItemData = Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId));
 	Items[Slot].ItemData = ItemData;

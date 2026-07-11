@@ -51,7 +51,7 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 
 	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
-	
+
 	ItemDropPoint = CreateDefaultSubobject<USceneComponent>(TEXT("Item Drop Point"));
 	ItemDropPoint->SetupAttachment(GetMesh());
 }
@@ -105,7 +105,7 @@ void APZ_PlayerCharacter::SetOverlappingItemPickup(APZ_ItemDummy* Pickup)
 void APZ_PlayerCharacter::ClearOverlappingItemPickup(APZ_ItemDummy* Pickup)
 {
 	if (OverlappingItemPickup != Pickup) return;
-	
+
 	OverlappingItemPickup = nullptr;
 	OnInteractableChanged.Broadcast(FPrimaryAssetId{});
 }
@@ -183,7 +183,7 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 	UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EnhancedInput) return;
-	
+
 	if (MoveAction) EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Move);
 	if (AimAction) EnhancedInput->BindAction(AimAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Aim);
 	if (JumpAction)
@@ -195,10 +195,18 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		EnhancedInput->BindAction(AttackAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DoAttack);
 	if (InteractAction)
 		EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::Interact);
-	
+
+	// Inventory actions
 	if (DropItemAction)
 		EnhancedInput->BindAction(DropItemAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DropItem);
-	
+	if (SelectNextItemAction)
+		EnhancedInput->BindAction(SelectNextItemAction, ETriggerEvent::Started, this,
+		                          &APZ_PlayerCharacter::SelectItemWithStride, 1);
+	if (SelectPrevItemAction)
+		EnhancedInput->BindAction(SelectPrevItemAction, ETriggerEvent::Started, this,
+		                          &APZ_PlayerCharacter::SelectItemWithStride, -1);
+
+
 	// Bind inventory slot actions
 	const auto* InventorySettings = GetDefault<UPZ_InventorySettings>();
 	const int32 MinNumSlotActions = FMath::Min(InventorySettings->MaxInventorySlots, SelectedSlotActions.Num());
@@ -211,7 +219,7 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 				ETriggerEvent::Started,
 				this,
 				&APZ_PlayerCharacter::SelectInventorySlot, i);
-		}	
+		}
 	}
 }
 
@@ -284,34 +292,49 @@ void APZ_PlayerCharacter::DropItem()
 {
 	if (!InventoryComponent)
 		return;
-	
+
 	int32 SelectedSlot = InventoryComponent->GetSelectedSlot();
 	UPZ_ItemDataAsset* ItemData = InventoryComponent->GetItemData(SelectedSlot);
-	if (!ItemData) return; // no item here
-	
+	if (!IsValid(ItemData)) return; // no item here
+
 	// spawn dummy actor 
-	if (ItemData->DummyActorClass)
+	if (ItemData->DummyActorClass.IsValid())
 	{
-		FVector SpawnLocation = ItemDropPoint->GetComponentLocation();		
+		FVector SpawnLocation = ItemDropPoint->GetComponentLocation();
 		FRotator SpawnRotation = ItemDropPoint->GetComponentRotation();
 		UClass* DummyClass = ItemData->DummyActorClass.LoadSynchronous(); // TODO: Better way to load the class
-		APZ_ItemDummy* NewActor = GetWorld()->SpawnActor<APZ_ItemDummy>(DummyClass, SpawnLocation, SpawnRotation);
-		
-		// add some drop force
-		if (NewActor)
-			if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
+		if (IsValid(DummyClass))
+		{
+			APZ_ItemDummy* NewActor = GetWorld()->SpawnActor<APZ_ItemDummy>(DummyClass, SpawnLocation, SpawnRotation);
+
+			// add some drop force
+			if (NewActor)
 			{
-				PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None, true);
+				if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
+				{
+					PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None, true);
+				}
 			}
+		}
 	}
-	
+
 	InventoryComponent->TryPopItem(SelectedSlot);
+}
+
+void APZ_PlayerCharacter::SelectItemWithStride(int32 Stride)
+{
+	if (!InventoryComponent) return;
+
+	const int32 CurrentSlot = InventoryComponent->GetSelectedSlot();
+	const int32 MaxSlots = InventoryComponent->GetMaxSlots();
+	const int32 IndexToSwitchTo = (CurrentSlot + MaxSlots + Stride) % MaxSlots;
+	InventoryComponent->SetSelectedSlot(IndexToSwitchTo);
 }
 
 void APZ_PlayerCharacter::SelectInventorySlot(int32 Slot)
 {
 	if (InventoryComponent)
-		InventoryComponent->SelectSlot(Slot);
+		InventoryComponent->SetSelectedSlot(Slot);
 }
 
 void APZ_PlayerCharacter::SpawnAndAttachShovel()
@@ -407,12 +430,12 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 		APZ_ItemDummy* Pickup = OverlappingItemPickup;
 		if (InventoryComponent->AddItem(Pickup->ItemId))
 		{
-			ClearOverlappingItemPickup(Pickup);	
+			ClearOverlappingItemPickup(Pickup);
 			Pickup->Destroy();
 			return;
 		}
-	}	
-	
+	}
+
 	// Carrying -> try to deliver at the delivery point I'm currently on.
 	if (CarriedPizza)
 	{
@@ -471,10 +494,10 @@ void APZ_PlayerCharacter::AddInputMappings()
 {
 	APZ_PlayerController* PlayerController = Cast<APZ_PlayerController>(GetController());
 	if (!PlayerController) return;
-	
+
 	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
 	if (!LocalPlayer) return;
-	
+
 	auto* EnhancedInputSS = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
 	if (!EnhancedInputSS) return;
 

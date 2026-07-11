@@ -80,6 +80,7 @@ protected:
 	void DoAttack();
 	void Interact();
 	void DropItem();
+	void SelectItemWithStride(int32 Stride);
 	void SelectInventorySlot(int32 Slot);
 	void AddInputMappings();
 
@@ -118,6 +119,12 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DropItemAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* SelectPrevItemAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* SelectNextItemAction;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TArray<TObjectPtr<UInputAction>> SelectedSlotActions;

@@ -39,10 +39,10 @@ public:
 	
 	/* Select a slot in the inventory */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	void SelectSlot(int32 Slot);
+	void SetSelectedSlot(int32 Slot);
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	int32 GetMaxSlots() const { return MaxItemSlots;}
+	int32 GetMaxSlots() const { return Items.Num();}
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	int32 GetSelectedSlot() const { return SelectedSlot;}
