@@ -79,8 +79,8 @@ protected:
 	void Aim(const FInputActionValue& Value);
 	void DoAttack();
 	void Interact();
-
-	void AddInputMapping();
+	void SelectInventorySlot(int32 Slot);
+	void AddInputMappings();
 
 
 	// Camera
@@ -93,6 +93,9 @@ protected:
 	// Inputs
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputMappingContext* InventoryMappingContext;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MoveAction;
@@ -108,6 +111,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* InteractAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TArray<TObjectPtr<UInputAction>> SelectedSlotActions;
 
 	// Feel
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feel|Camera")

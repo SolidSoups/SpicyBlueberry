@@ -25,6 +25,7 @@ void UPZ_InventoryWidget::NativeConstruct()
 	
 	InventoryComponent->OnItemLoadedDelegate.AddUObject(this, &UPZ_InventoryWidget::HandleItemLoaded);
 	InventoryComponent->OnItemRemovedDelegate.AddUObject(this, &UPZ_InventoryWidget::HandleItemUnloaded);	
+	InventoryComponent->OnSlotSelectedDelegate.AddUObject(this, &UPZ_InventoryWidget::HandleSlotSelected);
 
 	int32 MaxItems = 2;
 	if (const auto* Settings = GetDefault<UPZ_InventorySettings>())
@@ -73,4 +74,13 @@ void UPZ_InventoryWidget::HandleItemUnloaded(int32 SlotIndex)
 	}
 	
 	SlotWidgets[SlotIndex]->ClearSlot();
+}
+
+void UPZ_InventoryWidget::HandleSlotSelected(int32 SlotIndex)
+{
+	for (int32 i=0; i<SlotWidgets.Num(); i++)
+	{
+		if (SlotWidgets[i])
+			SlotWidgets[i]->SetSelected(i == SlotIndex);
+	}	
 }

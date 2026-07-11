@@ -10,6 +10,7 @@ class UPZ_ItemDataAsset;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnItemLoaded, const int32 /* Slot */, const UPZ_ItemDataAsset* /* ItemId */)
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemRemoved, const int32 /* Slot */)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSlotSelected, const int32 /* Slot */)
 
 USTRUCT()
 struct FPZ_InventorySlot
@@ -32,6 +33,16 @@ class SPICYBLUEB_API UPZ_InventoryComponent : public UActorComponent
 public:
 	UPZ_InventoryComponent();
 	virtual void BeginPlay() override;
+	
+	/* Select a slot in the inventory */
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	void SelectSlot(int32 Slot);
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	int32 GetMaxSlots() const { return MaxItemSlots;}
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	int32 GetSelectedSlot() const { return SelectedSlot;}
 
 	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -43,13 +54,16 @@ public:
 	
 	FOnItemLoaded OnItemLoadedDelegate;
 	FOnItemRemoved OnItemRemovedDelegate;
+	FOnSlotSelected OnSlotSelectedDelegate;
 	
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 MaxItems = 2;
+	int32 MaxItemSlots = 2; // default here only applies if settings not found
 	
 	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId) const;
 
 	UPROPERTY()
 	TArray<FPZ_InventorySlot> Items;
+	
+	int32 SelectedSlot = 0;
 };

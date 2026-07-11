@@ -4,6 +4,7 @@
 #include "PZ_InventorySlotWidget.h"
 
 #include "Components/Image.h"
+#include "Components/WidgetSwitcher.h"
 #include "Engine/AssetManager.h"
 #include "Engine/Engine.h"
 #include "Engine/Texture2D.h"
@@ -29,6 +30,11 @@ void UPZ_InventorySlotWidget::SetItemData(const UPZ_ItemDataAsset* ItemAsset)
 			}
 		})
 	);
+}
+
+void UPZ_InventorySlotWidget::SetSelected(bool IsSelected)
+{
+	SlotImageSwitcher->SetActiveWidgetIndex(IsSelected ? 1 : 0);
 }
 
 void UPZ_InventorySlotWidget::ClearSlot()

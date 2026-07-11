@@ -8,6 +8,7 @@
 #include "Animation/AnimInstance.h"
 #include "PZ_PlayerState.h"
 #include "VectorUtil.h"
+#include "BaseGizmos/GizmoElementShared.h"
 #include "Camera/CameraComponent.h"
 #include "Chaos/AABBTree.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -22,6 +23,7 @@
 #include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
+#include "SpicyBlueb/Inventory/PZ_InventorySettings.h"
 #include "SpicyBlueb/Inventory/PZ_ItemDummy.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
@@ -119,7 +121,7 @@ void APZ_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AddInputMapping();
+	AddInputMappings();
 	SpawnAndAttachShovel();
 	LastAppliedYaw = GetActorRotation().Yaw;
 }
@@ -170,27 +172,42 @@ void APZ_PlayerCharacter::Tick(float DeltaTime)
 void APZ_PlayerCharacter::PawnClientRestart()
 {
 	Super::PawnClientRestart();
-	AddInputMapping();
+	AddInputMappings();
 }
 
 void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-
-	if (!EIC) return;
-	if (MoveAction) EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Move);
-	if (AimAction) EIC->BindAction(AimAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Aim);
+	UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	if (!EnhancedInput) return;
+	
+	if (MoveAction) EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Move);
+	if (AimAction) EnhancedInput->BindAction(AimAction, ETriggerEvent::Triggered, this, &APZ_PlayerCharacter::Aim);
 	if (JumpAction)
 	{
-		EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+		EnhancedInput->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
 	if (AttackAction)
-		EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DoAttack);
+		EnhancedInput->BindAction(AttackAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DoAttack);
 	if (InteractAction)
-		EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::Interact);
+		EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::Interact);
+	
+	// Bind inventory slot actions
+	const auto* InventorySettings = GetDefault<UPZ_InventorySettings>();
+	const int32 MinNumSlotActions = FMath::Min(InventorySettings->MaxInventorySlots, SelectedSlotActions.Num());
+	for (int32 i = 0; i < MinNumSlotActions; ++i)
+	{
+		if (SelectedSlotActions[i])
+		{
+			EnhancedInput->BindAction(
+				SelectedSlotActions[i],
+				ETriggerEvent::Started,
+				this,
+				&APZ_PlayerCharacter::SelectInventorySlot, i);
+		}	
+	}
 }
 
 
@@ -256,6 +273,12 @@ void APZ_PlayerCharacter::Interact()
 	{
 		Server_Interact();
 	}
+}
+
+void APZ_PlayerCharacter::SelectInventorySlot(int32 Slot)
+{
+	if (InventoryComponent)
+		InventoryComponent->SelectSlot(Slot);
 }
 
 void APZ_PlayerCharacter::SpawnAndAttachShovel()
@@ -411,19 +434,19 @@ void APZ_PlayerCharacter::Server_SetFacingYaw_Implementation(float NewYaw)
 	MARK_PROPERTY_DIRTY_FROM_NAME(APZ_PlayerCharacter, RepFacingYaw, this);
 }
 
-void APZ_PlayerCharacter::AddInputMapping()
+void APZ_PlayerCharacter::AddInputMappings()
 {
-	if (APZ_PlayerController* PC = Cast<APZ_PlayerController>(GetController()))
-	{
-		if (ULocalPlayer* LP = PC->GetLocalPlayer())
-		{
-			if (UEnhancedInputLocalPlayerSubsystem* EILPS = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-			{
-				if (DefaultMappingContext)
-				{
-					EILPS->AddMappingContext(DefaultMappingContext, 0);
-				}
-			}
-		}
-	}
+	APZ_PlayerController* PlayerController = Cast<APZ_PlayerController>(GetController());
+	if (!PlayerController) return;
+	
+	ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
+	if (!LocalPlayer) return;
+	
+	auto* EnhancedInputLPSS = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+	if (!EnhancedInputLPSS) return;
+
+	if (DefaultMappingContext)
+		EnhancedInputLPSS->AddMappingContext(DefaultMappingContext, 0);
+	if (InventoryMappingContext)
+		EnhancedInputLPSS->AddMappingContext(InventoryMappingContext, 1);
 }

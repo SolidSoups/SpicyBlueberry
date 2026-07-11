@@ -7,6 +7,7 @@
 #include "Blueprint/UserWidget.h"
 #include "PZ_InventorySlotWidget.generated.h"
 
+class UWidgetSwitcher;
 class UImage;
 struct FStreamableHandle;
 /**
@@ -19,11 +20,16 @@ class SPICYBLUEB_API UPZ_InventorySlotWidget : public UUserWidget
 	
 public:
 	void SetItemData(const UPZ_ItemDataAsset* ItemAsset);
+	void SetSelected(bool IsSelected);
 	void ClearSlot();
 	
 protected:
 	UPROPERTY(meta = (BindWidget))	
 	UImage* ItemIconImage;
+	
+	// Unselected = Widget0, Selected = Widget1
+	UPROPERTY(meta = (BindWidget))
+	UWidgetSwitcher* SlotImageSwitcher;
 	
 private:
 	TSharedPtr<FStreamableHandle> IconLoadHandle;

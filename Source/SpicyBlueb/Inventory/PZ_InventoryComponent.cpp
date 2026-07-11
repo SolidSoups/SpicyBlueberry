@@ -17,15 +17,27 @@ void UPZ_InventoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (const auto* Settings = GetDefault<UPZ_InventorySettings>())
-	{
-		Items.SetNum(Settings->MaxInventorySlots);
-	}
+	if (const auto* InventorySettings = GetDefault<UPZ_InventorySettings>())
+		MaxItemSlots = InventorySettings->MaxInventorySlots;
 	else
+		UE_LOG(LogTemp, Error, TEXT("Could not get inventory settings"));
+	
+	Items.SetNum(MaxItemSlots);
+	
+	// Broadcast item selection so UI defaults to zero index
+	OnSlotSelectedDelegate.Broadcast(0);
+}
+
+void UPZ_InventoryComponent::SelectSlot(int32 Slot)
+{
+	if (Slot < 0 or Slot >= MaxItemSlots)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Pizza Settings is NULL"));
-		Items.SetNum(2);
+		UE_LOG(LogTemp, Error, TEXT("Slot out of range"));
+		return;
 	}
+	
+	SelectedSlot = Slot;		
+	OnSlotSelectedDelegate.Broadcast(Slot);
 }
 
 bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
@@ -35,32 +47,32 @@ bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 		UE_LOG(LogTemp, Error, TEXT("ItemId is invalid"));
 		return false;
 	}
-	
+
 	// find the first unoccupied slot
 	int32 FirstSlot = -1;
-	for (int32 i=0; i < Items.Num(); i++)
+	for (int32 i = 0; i < Items.Num(); i++)
 	{
-		if (!Items.IsValidIndex(i) or Items[i].IsOccupied)	
+		if (!Items.IsValidIndex(i) or Items[i].IsOccupied)
 			continue;
-		
+
 		FirstSlot = i;
 		break;
 	}
-	
+
 	if (FirstSlot <= -1)
 		return false;
 
 	// occupy the slot
 	Items[FirstSlot].IsOccupied = true;
 	Items[FirstSlot].AssetId = ItemId;
-	
+
 	// Note [Elias Brown]: Although the inventory is not accessing the item data, it is important that the item
 	// is loaded for the entire stay within the inventory
 	UAssetManager::Get().LoadPrimaryAsset(
 		ItemId,
 		TArray<FName>(),
-		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded,  FirstSlot, ItemId));
-	
+		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, FirstSlot, ItemId));
+
 	return true;
 }
 
@@ -75,9 +87,9 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 	// release our asset ref count
 	FPrimaryAssetId AssetId = Items[Slot].AssetId;
 	UAssetManager::Get().UnloadPrimaryAsset(AssetId);
-	
+
 	OnItemRemovedDelegate.Broadcast(Slot);
-	
+
 	// Reset slot to blank state
 	Items[Slot].IsOccupied = false;
 	Items[Slot].AssetId = FPrimaryAssetId{};

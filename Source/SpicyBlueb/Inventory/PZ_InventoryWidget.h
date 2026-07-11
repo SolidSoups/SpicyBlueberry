@@ -29,6 +29,8 @@ protected:
 	void HandleItemLoaded(const int32 SlotIndex, const UPZ_ItemDataAsset* ItemAsset);
 	UFUNCTION()
 	void HandleItemUnloaded(int32 SlotIndex);
+	UFUNCTION()
+	void HandleSlotSelected(int32 SlotIndex);
 	
 	UPROPERTY()
 	TObjectPtr<UPZ_InventoryComponent> InventoryComponent;
