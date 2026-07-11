@@ -3,22 +3,50 @@
 
 #include "PZ_ItemDummy.h"
 
+#include "PZ_ItemData.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
+#include "Engine/AssetManager.h"
+#include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 
 
 APZ_ItemDummy::APZ_ItemDummy()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	
+
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision Box"));
 	SetRootComponent(CollisionBox);
 	CollisionBox->SetBoxExtent(FVector(20.f));
 	CollisionBox->SetCollisionProfileName(TEXT("PhysicsActor"));
 	CollisionBox->SetSimulatePhysics(true);
-	
+
 	PickupVolume = CreateDefaultSubobject<USphereComponent>(TEXT("Pickup Volume"));
 	PickupVolume->SetupAttachment(CollisionBox);
 	PickupVolume->SetSphereRadius(50.f);
 	PickupVolume->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+	PickupVolume->OnComponentBeginOverlap.AddDynamic(this, &APZ_ItemDummy::OnPickupVolumeBeginOverlap);
+	PickupVolume->OnComponentEndOverlap.AddDynamic(this, &APZ_ItemDummy::OnPickupVolumeEndOverlap);
+}
+
+void APZ_ItemDummy::OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+                                               UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+                                               const FHitResult& SweepResult)
+{
+	if (!HasAuthority()) return;
+
+	if (APZ_PlayerCharacter* Character = Cast<APZ_PlayerCharacter>(OtherActor))
+	{
+		Character->SetOverlappingItemPickup(this);
+	}
+}
+
+void APZ_ItemDummy::OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+                                             UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (!HasAuthority()) return;
+
+	if (APZ_PlayerCharacter* Character = Cast<APZ_PlayerCharacter>(OtherActor))
+	{
+		Character->ClearOverlappingItemPickup(this);
+	}
 }

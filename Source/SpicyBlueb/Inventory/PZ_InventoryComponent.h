@@ -35,7 +35,7 @@ public:
 
 	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	void AddItem(FPrimaryAssetId ItemId);
+	bool AddItem(FPrimaryAssetId ItemId);
 	
 	/* Removes an item from the given slot. If there is no item at that slot, or if the slot index is invalid, it will return an invalid asset id. */
 	UFUNCTION(BlueprintCallable, Category="Inventory")

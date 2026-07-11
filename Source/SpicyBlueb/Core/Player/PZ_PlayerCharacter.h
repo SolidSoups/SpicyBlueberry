@@ -17,6 +17,10 @@ class APZ_Shovel;
 class APZ_Pizza;
 class APZ_Restaurant;
 class APZ_DeliveryPoint;
+class APZ_ItemDummy;
+class UPZ_ItemDataAsset;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnInteractableChanged, const FPrimaryAssetId)
 
 UCLASS()
 class SPICYBLUEB_API APZ_PlayerCharacter : public ACharacter
@@ -63,6 +67,11 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	FVector GetFacingDirection() const ;
+	
+	void SetOverlappingItemPickup(APZ_ItemDummy* Pickup);
+	void ClearOverlappingItemPickup(APZ_ItemDummy* Pickup);
+	
+	FOnInteractableChanged OnInteractableChanged;
 
 protected:
 	// Input handlers
@@ -177,4 +186,7 @@ private:
 	FVector DesiredFacing = FVector::ForwardVector;
 	bool bUsingGamepadAim = false;
 	
+	// TODO [Elias Brown]: Make this an array instead, and only allow pickup with closest
+	UPROPERTY()
+	TObjectPtr<APZ_ItemDummy> OverlappingItemPickup = nullptr;
 };

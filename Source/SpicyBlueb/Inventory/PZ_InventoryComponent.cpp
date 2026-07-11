@@ -28,8 +28,14 @@ void UPZ_InventoryComponent::BeginPlay()
 	}
 }
 
-void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
+bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 {
+	if (!ItemId.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("ItemId is invalid"));
+		return false;
+	}
+	
 	// find the first unoccupied slot
 	int32 FirstSlot = -1;
 	for (int32 i=0; i < Items.Num(); i++)
@@ -42,7 +48,7 @@ void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 	}
 	
 	if (FirstSlot <= -1)
-		return;
+		return false;
 
 	// occupy the slot
 	Items[FirstSlot].IsOccupied = true;
@@ -54,6 +60,8 @@ void UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 		ItemId,
 		TArray<FName>(),
 		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded,  FirstSlot, ItemId));
+	
+	return true;
 }
 
 FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)

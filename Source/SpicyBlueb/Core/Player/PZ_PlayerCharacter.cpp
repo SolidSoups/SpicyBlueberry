@@ -9,6 +9,7 @@
 #include "PZ_PlayerState.h"
 #include "VectorUtil.h"
 #include "Camera/CameraComponent.h"
+#include "Chaos/AABBTree.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
@@ -21,6 +22,7 @@
 #include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
 #include "SpicyBlueb/Delivery/PZ_Restaurant.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
+#include "SpicyBlueb/Inventory/PZ_ItemDummy.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
 #include "SpicyBlueb/Weapons/PZ_Shovel.h"
 
@@ -46,7 +48,7 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->bUsePawnControlRotation = false;
-	
+
 	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
 }
 
@@ -90,6 +92,20 @@ FVector APZ_PlayerCharacter::GetFacingDirection() const
 	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
 }
 
+void APZ_PlayerCharacter::SetOverlappingItemPickup(APZ_ItemDummy* Pickup)
+{
+	OverlappingItemPickup = Pickup;
+	OnInteractableChanged.Broadcast(Pickup ? Pickup->ItemId : FPrimaryAssetId{});
+}
+
+void APZ_PlayerCharacter::ClearOverlappingItemPickup(APZ_ItemDummy* Pickup)
+{
+	if (OverlappingItemPickup != Pickup) return;
+	
+	OverlappingItemPickup = nullptr;
+	OnInteractableChanged.Broadcast(FPrimaryAssetId{});
+}
+
 
 void APZ_PlayerCharacter::CarryPizza(APZ_Pizza* Pizza)
 {
@@ -112,24 +128,25 @@ void APZ_PlayerCharacter::DrawHeadingToNearestDeliveryPoint()
 {
 	UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>();
 	if (!DeliverySS)
-		return ;
+		return;
 
 	// Find the closest delivery location. Probably the most obnoxious way to do it
 	TArray<FVector> DeliveryLocations = DeliverySS->GetDeliveryLocations();
-	if (DeliveryLocations.Num() == 0) return ;
-	
+	if (DeliveryLocations.Num() == 0) return;
+
 	const FVector MyLocation = GetActorLocation();
-	const FVector* Closest = Algo::MinElementBy(DeliveryLocations, 
+	const FVector* Closest = Algo::MinElementBy(DeliveryLocations,
 	                                            [MyLocation](const FVector& Loc)
 	                                            {
 		                                            return FVector::DistSquared(MyLocation, Loc);
 	                                            });
-	
+
 	// Did we find a closest location?
 	if (Closest)
 	{
-		const FVector Heading = (*Closest - MyLocation).GetSafeNormal2D();		
-		DrawDebugDirectionalArrow(GetWorld(), MyLocation, MyLocation + Heading * 200.f, 50.f, FColor::Yellow, false, 0.f, 0U, 5.f);	
+		const FVector Heading = (*Closest - MyLocation).GetSafeNormal2D();
+		DrawDebugDirectionalArrow(GetWorld(), MyLocation, MyLocation + Heading * 200.f, 50.f, FColor::Yellow, false,
+		                          0.f, 0U, 5.f);
 	}
 }
 
@@ -146,7 +163,7 @@ void APZ_PlayerCharacter::Tick(float DeltaTime)
 
 
 	// # Debug tell us nearest delivery point
-	
+
 	DrawHeadingToNearestDeliveryPoint();
 }
 
@@ -328,6 +345,18 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
+	// Always pick up items first
+	if (OverlappingItemPickup)
+	{
+		APZ_ItemDummy* Pickup = OverlappingItemPickup;
+		if (InventoryComponent->AddItem(Pickup->ItemId))
+		{
+			ClearOverlappingItemPickup(Pickup);	
+			Pickup->Destroy();
+			return;
+		}
+	}	
+	
 	// Carrying -> try to deliver at the delivery point I'm currently on.
 	if (CarriedPizza)
 	{
