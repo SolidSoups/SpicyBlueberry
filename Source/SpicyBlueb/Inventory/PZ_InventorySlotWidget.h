@@ -19,8 +19,11 @@ class SPICYBLUEB_API UPZ_InventorySlotWidget : public UUserWidget
 	GENERATED_BODY()
 	
 public:
+	/* Loads the icon image into memory and enabled visibility of that icon */
 	void SetItemData(const UPZ_ItemDataAsset* ItemAsset);
+	/* Triggers a WidgetSwitcher to switch to either a dark (false) or light (true) background */
 	void SetSelected(bool IsSelected);
+	/* Unloads icon from memory and disables its visibility */
 	void ClearSlot();
 	
 protected:

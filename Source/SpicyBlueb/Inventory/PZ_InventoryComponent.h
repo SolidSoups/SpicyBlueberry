@@ -18,10 +18,10 @@ struct FPZ_InventorySlot
 	GENERATED_BODY()	
 		
 	UPROPERTY()
-	FPrimaryAssetId AssetId;
+	FPrimaryAssetId AssetId{};
 	
 	UPROPERTY()
-	UPZ_ItemDataAsset* ItemData;
+	UPZ_ItemDataAsset* ItemData = nullptr;
 	
 	UPROPERTY()
 	bool IsOccupied = false;
@@ -57,7 +57,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool AddItem(FPrimaryAssetId ItemId);
 	
-	/* Removes an item from the given slot. If there is no item at that slot, or if the slot index is invalid, it will return an invalid asset id. */
+	/* Tries to remove an item from the given Slot. If successful, you are given a valid Assed ID handle for the removed item. */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	FPrimaryAssetId TryPopItem(int32 Slot);
 	
@@ -73,6 +73,8 @@ protected:
 
 	UPROPERTY()
 	TArray<FPZ_InventorySlot> Items;
+	
+	TBitArray<> IsSlotLoading;
 	
 	int32 SelectedSlot = 0;
 };

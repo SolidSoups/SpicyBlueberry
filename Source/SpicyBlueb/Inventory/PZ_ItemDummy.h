@@ -7,13 +7,11 @@
 #include "PZ_ItemDummy.generated.h"
 
 class UPZ_ItemDataAsset;
-/* An item dummy is a useless little thing displayed in the world. The user
- * can pick it up at their leisure but it isn't supposed to do any actions. */
+
+/* A world actor which merely pretends to be an item. Stripped to its core, its only purpose is to display the model, do physics and be picked up. */
 UCLASS()
 class SPICYBLUEB_API APZ_ItemDummy : public AActor
 {
-
-private:
 	GENERATED_BODY()
 
 public:
