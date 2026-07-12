@@ -9,6 +9,7 @@
 #include "BaseGizmos/GizmoElementShared.h"
 #include "Camera/CameraComponent.h"
 #include "Chaos/AABBTree.h"
+#include "Components/PZ_InteractionComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
@@ -51,6 +52,7 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 
 	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
+	InteractionComponent = CreateDefaultSubobject<UPZ_InteractionComponent>(TEXT("Interaction Component"));
 
 	ItemDropPoint = CreateDefaultSubobject<USceneComponent>(TEXT("Item Drop Point"));
 	ItemDropPoint->SetupAttachment(GetMesh());
@@ -95,21 +97,6 @@ FVector APZ_PlayerCharacter::GetFacingDirection() const
 
 	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
 }
-
-void APZ_PlayerCharacter::SetOverlappingItemPickup(APZ_ItemDummy* Pickup)
-{
-	OverlappingItemPickup = Pickup;
-	OnInteractableChanged.Broadcast(Pickup ? Pickup->ItemId : FPrimaryAssetId{});
-}
-
-void APZ_PlayerCharacter::ClearOverlappingItemPickup(APZ_ItemDummy* Pickup)
-{
-	if (OverlappingItemPickup != Pickup) return;
-
-	OverlappingItemPickup = nullptr;
-	OnInteractableChanged.Broadcast(FPrimaryAssetId{});
-}
-
 
 void APZ_PlayerCharacter::CarryPizza(APZ_Pizza* Pizza)
 {
@@ -312,7 +299,8 @@ void APZ_PlayerCharacter::DropItem()
 			{
 				if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
 				{
-					PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None, true);
+					PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None,
+					                        true);
 				}
 			}
 		}
@@ -425,13 +413,15 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
 	// Always pick up items first
-	if (OverlappingItemPickup)
+	if (InteractionComponent)
 	{
-		APZ_ItemDummy* Pickup = OverlappingItemPickup;
-		if (InventoryComponent->AddItem(Pickup->ItemId))
+		APZ_ItemDummy* ClosestInteractable = InteractionComponent->GetClosestInteractable();
+		if (IsValid(ClosestInteractable) and 
+			ClosestInteractable->ItemId.IsValid() and
+			InventoryComponent->AddItem(ClosestInteractable->ItemId))
 		{
-			ClearOverlappingItemPickup(Pickup);
-			Pickup->Destroy();
+			InteractionComponent->RemoveInteractable(ClosestInteractable);	
+			ClosestInteractable->Destroy();
 			return;
 		}
 	}
@@ -453,7 +443,7 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 		}
 		else if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not on a delivery point"));
+			//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not on a delivery point"));
 		}
 		return;
 	}

@@ -8,6 +8,7 @@
 #include "Components/SphereComponent.h"
 #include "Engine/AssetManager.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
+#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
 
 
 APZ_ItemDummy::APZ_ItemDummy()
@@ -34,10 +35,13 @@ void APZ_ItemDummy::OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedCo
 {
 	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Character = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		Character->SetOverlappingItemPickup(this);
-	}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!PZCharacter) return;
+
+	auto* InteractionComp = PZCharacter->GetComponentByClass<UPZ_InteractionComponent>();
+	if (!InteractionComp) return;
+
+	InteractionComp->AddInteractable(this);
 }
 
 void APZ_ItemDummy::OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -45,8 +49,11 @@ void APZ_ItemDummy::OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComp
 {
 	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Character = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		Character->ClearOverlappingItemPickup(this);
-	}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!PZCharacter) return;
+
+	auto* InteractionComp = PZCharacter->GetComponentByClass<UPZ_InteractionComponent>();
+	if (!InteractionComp) return;
+
+	InteractionComp->RemoveInteractable(this);
 }
