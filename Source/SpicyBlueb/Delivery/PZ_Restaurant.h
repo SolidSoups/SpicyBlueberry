@@ -4,20 +4,26 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "SpicyBlueb/Interfaces/PZ_Interactable.h"
 #include "PZ_Restaurant.generated.h"
 
+class UPZ_ItemDataAsset;
 class APZ_Pizza;
 class APZ_PlayerCharacter;
 class UStaticMeshComponent;
 class UBoxComponent;
 
 UCLASS()
-class SPICYBLUEB_API APZ_Restaurant : public AActor
+class SPICYBLUEB_API APZ_Restaurant : public AActor, public IPZ_Interactable
 {
+public:
+
+private:
 	GENERATED_BODY()
 
 public:
 	APZ_Restaurant();
+	virtual void OnInteract(APZ_PlayerCharacter* Interactor) override;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Restaurant")
 	int32 OwningPlayerIndex = 0;
@@ -25,8 +31,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Restaurant")
 	TSubclassOf<APZ_Pizza> PizzaClass;
 	
-	void RequestPizza(APZ_PlayerCharacter* Requester);
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Restaurant")
+	FPrimaryAssetId PizzaItemId;
+	
 protected:
 	virtual void BeginPlay() override;
 

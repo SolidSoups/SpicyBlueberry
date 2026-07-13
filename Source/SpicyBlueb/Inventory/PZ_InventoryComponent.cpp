@@ -111,7 +111,17 @@ bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 	return true;
 }
 
-FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
+bool UPZ_InventoryComponent::TryRemoveItem(FPrimaryAssetId ItemId)
+{
+	int32 FoundSlot = FindSlotWithItem(ItemId);
+	if (FoundSlot == INDEX_NONE) return false;
+	
+	DeleteSlot(FoundSlot);
+	OnItemRemovedDelegate.Broadcast(FoundSlot);
+	return true;
+}
+
+FPrimaryAssetId UPZ_InventoryComponent::TryPopItemSlot(int32 Slot)
 {
 	if (!Items.IsValidIndex(Slot))
 	{
@@ -125,22 +135,17 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItem(int32 Slot)
 	if (!Items[Slot].IsOccupied)
 		return FPrimaryAssetId{};
 
-	// release our asset ref count
 	FPrimaryAssetId AssetId = Items[Slot].AssetId;
-	UAssetManager::Get().UnloadPrimaryAsset(AssetId);
-
+	DeleteSlot(Slot);
 	OnItemRemovedDelegate.Broadcast(Slot);
-
-	// Reset slot to blank state
-	Items[Slot].IsOccupied = false;
-	Items[Slot].AssetId = FPrimaryAssetId{};
-	Items[Slot].ItemData = nullptr;
 
 	return AssetId;
 }
 
 void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId)
 {
+	if (!IsSlotLoading[Slot]) return;
+	
 	UPZ_ItemDataAsset* ItemData = Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId));
 	
 	// occupy the slot
@@ -150,4 +155,23 @@ void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetI
 	IsSlotLoading[Slot] = false;	
 	
 	OnItemLoadedDelegate.Broadcast(Slot, ItemData);
+}
+
+void UPZ_InventoryComponent::DeleteSlot(int32 Slot)
+{
+	if (!Items.IsValidIndex(Slot))
+		return;
+	
+	if (IsSlotLoading[Slot] or !Items[Slot].IsOccupied)
+		return;
+
+	// release our asset ref count
+	FPrimaryAssetId AssetId = Items[Slot].AssetId;
+	UAssetManager::Get().UnloadPrimaryAsset(AssetId);
+	
+	// Reset slot to blank state
+	Items[Slot].IsOccupied = false;
+	Items[Slot].AssetId = FPrimaryAssetId{};
+	Items[Slot].ItemData = nullptr;
+	IsSlotLoading[Slot] = false;
 }

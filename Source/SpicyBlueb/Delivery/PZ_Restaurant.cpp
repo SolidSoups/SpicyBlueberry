@@ -10,6 +10,8 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
+#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 
 APZ_Restaurant::APZ_Restaurant()
 {
@@ -32,7 +34,7 @@ APZ_Restaurant::APZ_Restaurant()
 	CounterPoint = CreateDefaultSubobject<USceneComponent>(TEXT("CounterPoint"));
 	CounterPoint->SetupAttachment(Mesh);
 	CounterPoint->SetRelativeLocation(FVector(150.f, 0.f, 100.f));
-	
+
 	// Create a text component too clearly see restaurant location
 	TextComp = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TextComp"));
 	TextComp->SetupAttachment(RootComponent);
@@ -42,6 +44,26 @@ APZ_Restaurant::APZ_Restaurant()
 	TextComp->SetWorldRotation(TopDownBackward);
 	TextComp->SetRelativeLocation(FVector(0.f, 0.f, 100.f));
 	TextComp->SetWorldSize(48.f);
+}
+
+void APZ_Restaurant::OnInteract(APZ_PlayerCharacter* Interactor)
+{
+	if (!HasAuthority()) return;
+	if (!IsValid(Interactor)) return;
+	if (!IsOwnedBy(Interactor)) return;
+	if (!PizzaItemId.IsValid()) return;
+	
+	auto* InventoryComp = Interactor->GetInventoryComponent();
+	auto* InteractionComp = Interactor->GetInteractionComponent();
+	if (!IsValid(InventoryComp) or !IsValid(InteractionComp))
+		return;
+	
+	// one piece at a time lil bro
+	if (InventoryComp->HasItem(PizzaItemId))
+		return;
+	
+	InteractionComp->RemoveInteractable(this);		
+	InventoryComp->AddItem(PizzaItemId);
 }
 
 void APZ_Restaurant::BeginPlay()
@@ -68,49 +90,33 @@ void APZ_Restaurant::BeginPlay()
 	}
 }
 
-void APZ_Restaurant::OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
+void APZ_Restaurant::OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+                                        const FHitResult& Sweep)
 {
 	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		if (IsOwnedBy(Char))
-		{
-			Char->SetOverlappingRestaurant(this);
-		}
-	}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!IsValid(PZCharacter) or !IsOwnedBy(PZCharacter)) return;
+
+	auto* InteractionComp = PZCharacter->GetComponentByClass<UPZ_InteractionComponent>();
+	if (!InteractionComp) return;
+
+	InteractionComp->AddInteractable(this);
 }
 
-void APZ_Restaurant::OnZoneEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void APZ_Restaurant::OnZoneEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                                      UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		Char->ClearOverlappingRestaurant(this);
-	}
-}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!IsValid(PZCharacter) or !IsOwnedBy(PZCharacter)) return;
 
-void APZ_Restaurant::RequestPizza(APZ_PlayerCharacter* Requester)
-{
-	if (!HasAuthority() || !Requester || !PizzaClass) return;
-	if (!IsOwnedBy(Requester)) return;
-	if (Requester->GetCarriedPizza()) return;
+	auto* InteractionComp = PZCharacter->GetComponentByClass<UPZ_InteractionComponent>();
+	if (!InteractionComp) return;
 
-	FActorSpawnParameters Params;
-	Params.Owner = this;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-	APZ_Pizza* Pizza = GetWorld()->SpawnActor<APZ_Pizza>(
-		PizzaClass,
-		CounterPoint->GetComponentLocation(),
-		CounterPoint->GetComponentRotation(),
-		Params);
-
-	if (Pizza)
-	{
-		Requester->CarryPizza(Pizza);
-	}
+	InteractionComp->RemoveInteractable(this);
 }
 
 bool APZ_Restaurant::IsOwnedBy(const APZ_PlayerCharacter* Char) const

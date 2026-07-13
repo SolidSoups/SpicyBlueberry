@@ -63,15 +63,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	bool AddItem(FPrimaryAssetId ItemId);
 	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	bool TryRemoveItem(FPrimaryAssetId ItemId);
+	
 	/* Tries to remove an item from the given Slot. If successful, you are given a valid Assed ID handle for the removed item. */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
-	FPrimaryAssetId TryPopItem(int32 Slot);
+	FPrimaryAssetId TryPopItemSlot(int32 Slot);
 	
 	FOnItemLoaded OnItemLoadedDelegate;
 	FOnItemRemoved OnItemRemovedDelegate;
 	FOnSlotSelected OnSlotSelectedDelegate;
 	
 protected:
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 MaxItemSlots = 2; // default here only applies if settings not found
 	
@@ -83,4 +87,7 @@ protected:
 	TBitArray<> IsSlotLoading;
 	
 	int32 SelectedSlot = 0;
+	
+private:
+	void DeleteSlot(int32 Slot);
 };

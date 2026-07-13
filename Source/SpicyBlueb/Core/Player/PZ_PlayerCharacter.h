@@ -66,6 +66,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	FVector GetFacingDirection() const ;
+	
+	UPZ_InventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
+	UPZ_InteractionComponent* GetInteractionComponent() const { return InteractionComponent; }
 
 protected:
 	// Input handlers

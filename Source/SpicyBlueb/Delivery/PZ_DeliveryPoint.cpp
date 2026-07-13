@@ -7,6 +7,9 @@
 #include "Net/UnrealNetwork.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 #include "Engine/World.h"
+#include "SpicyBlueb/Core/Player/PZ_PlayerState.h"
+#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 
 APZ_DeliveryPoint::APZ_DeliveryPoint()
 {
@@ -34,6 +37,33 @@ void APZ_DeliveryPoint::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(APZ_DeliveryPoint, bFirstDeliveryClaimed);
 }
 
+void APZ_DeliveryPoint::OnInteract(APZ_PlayerCharacter* Interactor)
+{
+	if (!HasAuthority()) return;
+	if (!IsValid(Interactor)) return;
+
+	APZ_PlayerState* PS = Cast<APZ_PlayerState>(Interactor->GetPlayerState());
+	if (!PS) return;
+	
+	auto* InteractionComp = Interactor->GetInteractionComponent();
+	auto* InventoryComp = Interactor->GetInventoryComponent();
+	if (!IsValid(InteractionComp) or !IsValid(InventoryComp)) return;
+	
+	if (InventoryComp->TryRemoveItem(PizzaItemId))
+	{
+		// Remove successful, player had that item
+		
+		// Hand off to delivery system
+		//if (UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>())
+		//{
+		//	if (DeliverySS->TryDeliver(PS, this, nullptr) > 0)
+		//	{
+		//     ClearCarriedPizza();
+		//	}
+		//}
+	}
+}
+
 void APZ_DeliveryPoint::BeginPlay()
 {
 	Super::BeginPlay();
@@ -42,26 +72,33 @@ void APZ_DeliveryPoint::BeginPlay()
 	AcceptVolume->OnComponentEndOverlap.AddDynamic(this, &APZ_DeliveryPoint::OnAcceptEndOverlap);
 }
 
-void APZ_DeliveryPoint::OnAcceptOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
+void APZ_DeliveryPoint::OnAcceptOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+                                        const FHitResult& Sweep)
 {
-	// Server owns the overlap state that Interact() reads.
-	if (!HasAuthority() || !OtherActor) return;
+	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		// Register this point so the player can deliver via Interact.
-		Char->SetOverlappingDeliveryPoint(this);
-	}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!IsValid(PZCharacter)) return;
+
+	auto* InteractionComp = PZCharacter->GetInteractionComponent();
+	if (!InteractionComp) return;
+
+	InteractionComp->AddInteractable(this);
 }
 
-void APZ_DeliveryPoint::OnAcceptEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void APZ_DeliveryPoint::OnAcceptEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                                           UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (!HasAuthority() || !OtherActor) return;
+	if (!HasAuthority()) return;
 
-	if (APZ_PlayerCharacter* Char = Cast<APZ_PlayerCharacter>(OtherActor))
-	{
-		Char->ClearOverlappingDeliveryPoint(this);
-	}
+	auto* PZCharacter = Cast<APZ_PlayerCharacter>(OtherActor);
+	if (!IsValid(PZCharacter)) return;
+
+	auto* InteractionComp = PZCharacter->GetInteractionComponent();
+	if (!InteractionComp) return;
+
+	InteractionComp->RemoveInteractable(this);
 }
 
 void APZ_DeliveryPoint::Relocate(const FVector& NewLocation)

@@ -16,6 +16,7 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
@@ -306,7 +307,7 @@ void APZ_PlayerCharacter::DropItem()
 		}
 	}
 
-	InventoryComponent->TryPopItem(SelectedSlot);
+	InventoryComponent->TryPopItemSlot(SelectedSlot);
 }
 
 void APZ_PlayerCharacter::SelectItemWithStride(int32 Stride)
@@ -419,39 +420,8 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 	if (IsValid(Interactable.GetObject()))
 	{
 		Interactable->OnInteract(this);	
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Interacted!"));
 	}	
-	
-	// Carrying -> try to deliver at the delivery point I'm currently on.
-	if (CarriedPizza)
-	{
-		if (OverlappingDeliveryPoint)
-		{
-			APZ_PlayerState* PS = GetPlayerState<APZ_PlayerState>();
-			if (PS)
-			{
-				if (UPZ_DeliveryWorldSubsystem* DeliverySS = GetWorld()->GetSubsystem<UPZ_DeliveryWorldSubsystem>())
-				{
-					if (DeliverySS->TryDeliver(PS, OverlappingDeliveryPoint, CarriedPizza) > 0)
-						ClearCarriedPizza();
-				}
-			}
-		}
-		else if (GEngine)
-		{
-			//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not on a delivery point"));
-		}
-		return;
-	}
-
-	// Empty-handed -> grab a pizza from the restaurant I'm standing in.
-	if (OverlappingRestaurant)
-	{
-		OverlappingRestaurant->RequestPizza(this);
-	}
-	else if (GEngine)
-	{
-		//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not in a restaurant"));
-	}
 }
 
 void APZ_PlayerCharacter::Server_DoAttack_Implementation(float ClientFacingYaw)

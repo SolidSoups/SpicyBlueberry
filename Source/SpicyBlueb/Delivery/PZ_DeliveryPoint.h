@@ -4,20 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "SpicyBlueb/Interfaces/PZ_Interactable.h"
 #include "PZ_DeliveryPoint.generated.h"
 
 class USphereComponent;
 class UStaticMeshComponent;
 
 UCLASS()
-class SPICYBLUEB_API APZ_DeliveryPoint : public AActor
+class SPICYBLUEB_API APZ_DeliveryPoint : public AActor, public IPZ_Interactable
 {
+
+private:
 	GENERATED_BODY()
 
 public:
 	APZ_DeliveryPoint();
-
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	virtual void OnInteract(APZ_PlayerCharacter* Interactor) override;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Delivery")
 	bool bFirstDeliveryClaimed = false;
@@ -47,4 +51,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Delivery")
 	TObjectPtr<UStaticMeshComponent> Marker;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Delivery")
+	FPrimaryAssetId PizzaItemId;
 };
