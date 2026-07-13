@@ -72,11 +72,17 @@ protected:
 	void Aim(const FInputActionValue& Value);
 	void DoAttack();
 	void Interact();
+	
 	void DropItem();
 	UFUNCTION(Server, Reliable)
 	void Server_DropItem();
+	
 	void SelectInventorySlotWithStride(int32 Stride);
 	void SelectInventorySlot(int32 Slot);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_SelectInventorySlot(int32 Slot);
+	
 	void AddInputMappings();
 
 	// Inventory

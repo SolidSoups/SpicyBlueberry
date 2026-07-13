@@ -40,12 +40,19 @@ void UPZ_InventoryWidget::NativeConstruct()
 	SlotVerticalBox->ClearChildren();
 	SlotWidgets.Reset();
 	SlotWidgets.Reserve(MaxItems);
-	
 	for (int32 i=0; i<MaxItems; i++)
 	{
 		UPZ_InventorySlotWidget* SlotWidget = CreateWidget<UPZ_InventorySlotWidget>(GetOwningPlayer(), SlotWidgetClass);
 		SlotVerticalBox->AddChildToVerticalBox(SlotWidget);
 		SlotWidgets.Add(SlotWidget);
+	}
+	
+	// Seed state from inventory component
+	HandleSlotSelected(InventoryComponent->GetSelectedSlot());
+	for (int32 i = 0; i < MaxItems; i++)
+	{
+		if (UPZ_ItemDataAsset* ItemAsset = InventoryComponent->GetItemData(i))
+			HandleItemLoaded(i, ItemAsset);
 	}
 }
 

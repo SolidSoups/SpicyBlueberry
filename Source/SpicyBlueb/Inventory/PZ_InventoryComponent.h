@@ -19,12 +19,6 @@ struct FPZ_InventorySlot
 		
 	UPROPERTY()
 	FPrimaryAssetId AssetId{};
-	
-	UPROPERTY()
-	UPZ_ItemDataAsset* ItemData = nullptr;
-	
-	UPROPERTY()
-	bool IsOccupied = false;
 };
 
 
@@ -35,6 +29,7 @@ class SPICYBLUEB_API UPZ_InventoryComponent : public UActorComponent
 
 public:
 	UPZ_InventoryComponent();
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 	
 	/* Select a slot in the inventory */
@@ -81,13 +76,27 @@ protected:
 	
 	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId);
 
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing=OnRep_Items)
 	TArray<FPZ_InventorySlot> Items;
+	
+	UPROPERTY()
+	TArray<TObjectPtr<UPZ_ItemDataAsset>> ResolvedItemsData;
+	
+	TArray<UPZ_ItemDataAsset> ItemsData;
 	
 	TBitArray<> IsSlotLoading;
 	
+	UPROPERTY(ReplicatedUsing=OnRep_SelectedSlot)
 	int32 SelectedSlot = 0;
 	
 private:
 	void DeleteSlot(int32 Slot);
+	
+	UFUNCTION()
+	void OnRep_Items();
+	
+	UFUNCTION()
+	void OnRep_SelectedSlot();
+	
+	TArray<FPrimaryAssetId> PreviousAssetIds;
 };

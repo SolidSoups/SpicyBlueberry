@@ -287,10 +287,10 @@ void APZ_PlayerCharacter::DropItem()
 }
 
 void APZ_PlayerCharacter::Server_DropItem_Implementation()
-{	
+{
 	if (!InventoryComponent)
 		return;
-	
+
 	// cancel drop if animation montage is playing
 	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
 	if (IsValid(EquippedActor) and EquippedActor->AttackMontage)
@@ -321,7 +321,7 @@ void APZ_PlayerCharacter::Server_DropItem_Implementation()
 				if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
 				{
 					PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None,
-											true);
+					                        true);
 				}
 			}
 		}
@@ -336,11 +336,23 @@ void APZ_PlayerCharacter::SelectInventorySlotWithStride(int32 Stride)
 
 	const int32 CurrentSlot = InventoryComponent->GetSelectedSlot();
 	const int32 MaxSlots = InventoryComponent->GetMaxSlots();
-	const int32 IndexToSwitchTo = (CurrentSlot + MaxSlots + Stride) % MaxSlots;
-	InventoryComponent->SetSelectedSlot(IndexToSwitchTo);
+	SelectInventorySlot((CurrentSlot + MaxSlots + Stride) % MaxSlots);
 }
 
 void APZ_PlayerCharacter::SelectInventorySlot(int32 Slot)
+{
+	if (HasAuthority())
+	{
+		Server_SelectInventorySlot_Implementation(Slot);
+	}
+	else
+	{
+		Server_SelectInventorySlot(Slot);
+	}
+}
+
+
+void APZ_PlayerCharacter::Server_SelectInventorySlot_Implementation(int32 Slot)
 {
 	if (InventoryComponent)
 		InventoryComponent->SetSelectedSlot(Slot);
