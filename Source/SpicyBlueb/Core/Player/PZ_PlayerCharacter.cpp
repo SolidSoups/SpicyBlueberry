@@ -83,7 +83,7 @@ void APZ_PlayerCharacter::PlayAttackMontage()
 	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
 	if (!EquippedActor or !EquippedActor->AttackMontage)
 		return;
-	
+
 	PlayAnimMontage(EquippedActor->AttackMontage);
 }
 
@@ -241,8 +241,9 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 void APZ_PlayerCharacter::DoAttack()
 {
 	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
-	if (!IsValid(EquippedActor) or !EquippedActor->AttackMontage) return; // nothing equipped can attack // nothing equipped can attack	
-	
+	if (!IsValid(EquippedActor) or !EquippedActor->AttackMontage) return;
+	// nothing equipped can attack // nothing equipped can attack	
+
 	// cancel if attack is already playing
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
@@ -275,8 +276,30 @@ void APZ_PlayerCharacter::Interact()
 
 void APZ_PlayerCharacter::DropItem()
 {
+	if (HasAuthority())
+	{
+		Server_DropItem_Implementation();
+	}
+	else
+	{
+		Server_DropItem();
+	}
+}
+
+void APZ_PlayerCharacter::Server_DropItem_Implementation()
+{	
 	if (!InventoryComponent)
 		return;
+	
+	// cancel drop if animation montage is playing
+	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
+	if (IsValid(EquippedActor) and EquippedActor->AttackMontage)
+	{
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance and
+			AnimInstance->Montage_IsPlaying(EquippedActor->AttackMontage))
+			return;
+	}
 
 	int32 SelectedSlot = InventoryComponent->GetSelectedSlot();
 	UPZ_ItemDataAsset* ItemData = InventoryComponent->GetItemData(SelectedSlot);
@@ -298,7 +321,7 @@ void APZ_PlayerCharacter::DropItem()
 				if (auto* PhysicsComp = Cast<UPrimitiveComponent>(NewActor->GetRootComponent()))
 				{
 					PhysicsComp->AddImpulse(GetFacingDirection() * DropImpulseStrength + GetVelocity(), NAME_None,
-					                        true);
+											true);
 				}
 			}
 		}
@@ -394,14 +417,14 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
 	if (!InteractionComponent) return;
-	
+
 	// Always pick up items first
 	TScriptInterface<IPZ_Interactable> Interactable = InteractionComponent->GetClosestInteractable();
 	if (IsValid(Interactable.GetObject()))
 	{
-		Interactable->OnInteract(this);	
+		Interactable->OnInteract(this);
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Interacted!"));
-	}	
+	}
 }
 
 void APZ_PlayerCharacter::Server_DoAttack_Implementation(float ClientFacingYaw)

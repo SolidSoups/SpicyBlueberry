@@ -15,6 +15,8 @@
 APZ_ItemDummy::APZ_ItemDummy()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+	SetReplicateMovement(true);
 
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision Box"));
 	SetRootComponent(CollisionBox);

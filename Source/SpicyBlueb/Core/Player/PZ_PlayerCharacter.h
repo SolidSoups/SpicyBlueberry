@@ -73,6 +73,8 @@ protected:
 	void DoAttack();
 	void Interact();
 	void DropItem();
+	UFUNCTION(Server, Reliable)
+	void Server_DropItem();
 	void SelectInventorySlotWithStride(int32 Stride);
 	void SelectInventorySlot(int32 Slot);
 	void AddInputMappings();
