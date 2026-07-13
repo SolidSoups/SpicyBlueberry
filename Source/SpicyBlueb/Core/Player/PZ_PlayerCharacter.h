@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "PZ_PlayerCharacter.generated.h"
 
+class UPZ_EquipmentComponent;
 class UPZ_InteractionComponent;
 class UPZ_InventoryComponent;
 class USpringArmComponent;
@@ -34,9 +35,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void PlayAttackMontage();
 
-	UFUNCTION(BlueprintPure, Category = "PZ|Pizza")
-	APZ_Pizza* GetCarriedPizza() const { return CarriedPizza; }
-
 	void CarryPizza(APZ_Pizza* Pizza);
 	void ClearCarriedPizza() { CarriedPizza = nullptr; }
 
@@ -61,14 +59,12 @@ public:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void SetWeaponCollisionEnabled(bool IsEnabled);
-	
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	FVector GetFacingDirection() const ;
 	
 	UPZ_InventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 	UPZ_InteractionComponent* GetInteractionComponent() const { return InteractionComponent; }
+	UPZ_EquipmentComponent* GetEquipmentComponent() const { return EquipmentComponent; }
 
 protected:
 	// Input handlers
@@ -77,7 +73,7 @@ protected:
 	void DoAttack();
 	void Interact();
 	void DropItem();
-	void SelectItemWithStride(int32 Stride);
+	void SelectInventorySlotWithStride(int32 Stride);
 	void SelectInventorySlot(int32 Slot);
 	void AddInputMappings();
 
@@ -148,13 +144,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
 	bool bDebug = false;
 
-	// Weapon
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	TSubclassOf<APZ_Shovel> ShovelClass;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
-	TObjectPtr<APZ_Shovel> EquippedShovel;
-
 	// Animation
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<UAnimMontage> AttackMontage;
@@ -165,13 +154,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UPZ_InteractionComponent> InteractionComponent;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UPZ_EquipmentComponent> EquipmentComponent;
+	
 	// Inventory
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float DropImpulseStrength = 100.f;
 
 private:
-	void SpawnAndAttachShovel();
-
 	// Helpers
 	void UpdateMouseFacing();
 	void ApplyFacing(float DeltaTime);
@@ -189,7 +179,6 @@ private:
 
 	float LastAppliedYaw = 0.f;
 
-	const FName HandSocketName = TEXT("HandGrip_R");
 	const FName PizzaSocketName = TEXT("PizzaHold");
 
 	UPROPERTY(Replicated)

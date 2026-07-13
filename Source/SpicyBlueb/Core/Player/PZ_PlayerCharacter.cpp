@@ -5,10 +5,10 @@
 #include "EnhancedInputSubsystems.h"
 #include "PZ_PlayerController.h"
 #include "Animation/AnimInstance.h"
-#include "PZ_PlayerState.h"
 #include "BaseGizmos/GizmoElementShared.h"
 #include "Camera/CameraComponent.h"
 #include "Chaos/AABBTree.h"
+#include "Components/PZ_EquipmentComponent.h"
 #include "Components/PZ_InteractionComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/Engine.h"
@@ -21,13 +21,12 @@
 #include "Net/Core/PushModel/PushModel.h"
 #include "SpicyBlueb/Core/GameMode/PZ_GameModeBase.h"
 #include "SpicyBlueb/Delivery/PZ_DeliveryWorldSubsystem.h"
-#include "SpicyBlueb/Delivery/PZ_Restaurant.h"
+#include "SpicyBlueb/Equippables/PZ_EquippableActor.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 #include "SpicyBlueb/Inventory/PZ_InventorySettings.h"
 #include "SpicyBlueb/Inventory/PZ_ItemData.h"
 #include "SpicyBlueb/Inventory/PZ_ItemDummy.h"
 #include "SpicyBlueb/Pizza/PZ_Pizza.h"
-#include "SpicyBlueb/Weapons/PZ_Shovel.h"
 
 
 APZ_PlayerCharacter::APZ_PlayerCharacter()
@@ -54,6 +53,7 @@ APZ_PlayerCharacter::APZ_PlayerCharacter()
 
 	InventoryComponent = CreateDefaultSubobject<UPZ_InventoryComponent>(TEXT("Inventory Component"));
 	InteractionComponent = CreateDefaultSubobject<UPZ_InteractionComponent>(TEXT("Interaction Component"));
+	EquipmentComponent = CreateDefaultSubobject<UPZ_EquipmentComponent>(TEXT("Equipment Component"));
 
 	ItemDropPoint = CreateDefaultSubobject<USceneComponent>(TEXT("Item Drop Point"));
 	ItemDropPoint->SetupAttachment(GetMesh());
@@ -80,15 +80,11 @@ void APZ_PlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 void APZ_PlayerCharacter::PlayAttackMontage()
 {
-	if (AttackMontage)
-	{
-		PlayAnimMontage(AttackMontage);
-	}
-}
-
-void APZ_PlayerCharacter::SetWeaponCollisionEnabled(bool IsEnabled)
-{
-	if (EquippedShovel) EquippedShovel->SetHitVolumeEnabled(IsEnabled);
+	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
+	if (!EquippedActor or !EquippedActor->AttackMontage)
+		return;
+	
+	PlayAnimMontage(EquippedActor->AttackMontage);
 }
 
 FVector APZ_PlayerCharacter::GetFacingDirection() const
@@ -112,7 +108,6 @@ void APZ_PlayerCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	AddInputMappings();
-	SpawnAndAttachShovel();
 	LastAppliedYaw = GetActorRotation().Yaw;
 }
 
@@ -189,10 +184,10 @@ void APZ_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		EnhancedInput->BindAction(DropItemAction, ETriggerEvent::Started, this, &APZ_PlayerCharacter::DropItem);
 	if (SelectNextItemAction)
 		EnhancedInput->BindAction(SelectNextItemAction, ETriggerEvent::Started, this,
-		                          &APZ_PlayerCharacter::SelectItemWithStride, 1);
+		                          &APZ_PlayerCharacter::SelectInventorySlotWithStride, 1);
 	if (SelectPrevItemAction)
 		EnhancedInput->BindAction(SelectPrevItemAction, ETriggerEvent::Started, this,
-		                          &APZ_PlayerCharacter::SelectItemWithStride, -1);
+		                          &APZ_PlayerCharacter::SelectInventorySlotWithStride, -1);
 
 
 	// Bind inventory slot actions
@@ -245,12 +240,14 @@ void APZ_PlayerCharacter::Aim(const FInputActionValue& Value)
 
 void APZ_PlayerCharacter::DoAttack()
 {
-	UE_LOG(LogTemp, Display, TEXT("Player Attack!"));
+	APZ_EquippableActor* EquippedActor = EquipmentComponent->GetCurrentEquipped();
+	if (!IsValid(EquippedActor) or !EquippedActor->AttackMontage) return; // nothing equipped can attack // nothing equipped can attack	
+	
+	// cancel if attack is already playing
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
-		if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
+		if (AnimInstance->Montage_IsPlaying(EquippedActor->AttackMontage)) return;
 	}
-
 	PlayAttackMontage();
 
 	if (HasAuthority())
@@ -310,7 +307,7 @@ void APZ_PlayerCharacter::DropItem()
 	InventoryComponent->TryPopItemSlot(SelectedSlot);
 }
 
-void APZ_PlayerCharacter::SelectItemWithStride(int32 Stride)
+void APZ_PlayerCharacter::SelectInventorySlotWithStride(int32 Stride)
 {
 	if (!InventoryComponent) return;
 
@@ -324,23 +321,6 @@ void APZ_PlayerCharacter::SelectInventorySlot(int32 Slot)
 {
 	if (InventoryComponent)
 		InventoryComponent->SetSelectedSlot(Slot);
-}
-
-void APZ_PlayerCharacter::SpawnAndAttachShovel()
-{
-	if (!ShovelClass) return;
-
-	FActorSpawnParameters Params;
-	Params.Owner = this;
-	EquippedShovel = GetWorld()->SpawnActor<APZ_Shovel>(ShovelClass, GetActorTransform(), Params);
-
-	if (EquippedShovel)
-	{
-		EquippedShovel->AttachToComponent(
-			GetMesh(),
-			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			HandSocketName);
-	}
 }
 
 void APZ_PlayerCharacter::UpdateMouseFacing()

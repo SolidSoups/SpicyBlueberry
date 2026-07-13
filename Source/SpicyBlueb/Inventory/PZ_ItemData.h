@@ -6,6 +6,7 @@
 #include "Engine/DataAsset.h"
 #include "PZ_ItemData.generated.h"
 
+class APZ_EquippableActor;
 /**
  * 
  */
@@ -20,6 +21,9 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item")
 	TSoftClassPtr<class APZ_ItemDummy> DummyActorClass;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TSoftClassPtr<APZ_EquippableActor> EquippableActorClass;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item")
 	TSoftObjectPtr<class UTexture2D> Icon;
