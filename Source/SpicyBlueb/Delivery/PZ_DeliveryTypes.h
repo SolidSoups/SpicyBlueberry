@@ -22,5 +22,5 @@ struct FPZ_Order
 	int32 BaseReward = 100;
 
 	UPROPERTY(BlueprintReadOnly)
-	bool bFulfilled = false;
+	bool IsFulfilled = false;
 };

@@ -3,6 +3,7 @@
 #include "PZ_DeliveryWorldSubsystem.h"
 #include "PZ_DeliveryPoint.h"
 #include "PZ_DeliverySettings.h"
+#include "Algo/Find.h"
 #include "Engine/Engine.h"
 #include "SpicyBlueb/Delivery/PZ_DeliveryTypes.h"
 #include "SpicyBlueb/PCG/PZ_CityGenerator.h"
@@ -121,16 +122,7 @@ int32 UPZ_DeliveryWorldSubsystem::TryDeliver(APZ_PlayerState* Player, APZ_Delive
 
 	// Free choice: fulfill the first unfulfilled order in the batch,
 	// regardless of which point it is. The player picks where to deliver.
-	FPZ_Order* Match = nullptr;
-	for (FPZ_Order& O : Player->ActiveOrders)
-	{
-		if (!O.bFulfilled)
-		{
-			Match = &O;
-			break;
-		}
-	}
-
+	FPZ_Order* Match = Algo::FindByPredicate(Player->ActiveOrders, [](const FPZ_Order& Order){ return !Order.IsFulfilled; });	
 	if (!Match)
 	{
 		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("At point but no order routes here"));
@@ -145,7 +137,7 @@ int32 UPZ_DeliveryWorldSubsystem::TryDeliver(APZ_PlayerState* Player, APZ_Delive
 		                                 FString::Printf(
 			                                 TEXT("DELIVERED! +%d  (quality=%.0f)"), Reward, Pizza->Quality));
 
-	Match->bFulfilled = true;
+	Match->IsFulfilled = true;
 
 	// First delivery bonus is consumed; mark the point claimed.
 	const bool bWasFirst = !Point->bFirstDeliveryClaimed;
@@ -163,7 +155,7 @@ int32 UPZ_DeliveryWorldSubsystem::TryDeliver(APZ_PlayerState* Player, APZ_Delive
 	bool bAllDone = true;
 	for (const FPZ_Order& O : Player->ActiveOrders)
 	{
-		if (!O.bFulfilled)
+		if (!O.IsFulfilled)
 		{
 			bAllDone = false;
 			break;

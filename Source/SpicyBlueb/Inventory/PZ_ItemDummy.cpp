@@ -3,6 +3,7 @@
 
 #include "PZ_ItemDummy.h"
 
+#include "PZ_InventoryComponent.h"
 #include "PZ_ItemData.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
@@ -27,6 +28,22 @@ APZ_ItemDummy::APZ_ItemDummy()
 	PickupVolume->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	PickupVolume->OnComponentBeginOverlap.AddDynamic(this, &APZ_ItemDummy::OnPickupVolumeBeginOverlap);
 	PickupVolume->OnComponentEndOverlap.AddDynamic(this, &APZ_ItemDummy::OnPickupVolumeEndOverlap);
+}
+
+void APZ_ItemDummy::OnInteract(APZ_PlayerCharacter* Interactor)
+{
+	if (!HasAuthority()) return;
+	
+	UPZ_InventoryComponent* InventoryComp = Interactor->GetComponentByClass<UPZ_InventoryComponent>();
+	UPZ_InteractionComponent* InteractionComp = Interactor->GetComponentByClass<UPZ_InteractionComponent>();
+	if (!IsValid(InventoryComp) or !IsValid(InteractionComp)) return;
+	
+	if (InventoryComp->AddItem(ItemId))
+	{
+		InteractionComp->RemoveInteractable(this);			
+		Destroy();
+		return;
+	}	
 }
 
 void APZ_ItemDummy::OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

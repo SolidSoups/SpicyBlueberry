@@ -81,6 +81,9 @@ protected:
 	// Inventory
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
 	TObjectPtr<USceneComponent> ItemDropPoint;
+	
+	UPROPERTY(EditAnywhere, Category="Inventory")
+	FPrimaryAssetId PizzaItemAssetId;
 
 	// Camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")

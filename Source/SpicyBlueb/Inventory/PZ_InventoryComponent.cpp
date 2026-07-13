@@ -66,6 +66,21 @@ UPZ_ItemDataAsset* UPZ_InventoryComponent::GetSelectedItemData() const
 	return Items[SelectedSlot].ItemData;
 }
 
+bool UPZ_InventoryComponent::HasItem(FPrimaryAssetId ItemId) const
+{
+	return FindSlotWithItem(ItemId) != INDEX_NONE;
+}
+
+int32 UPZ_InventoryComponent::FindSlotWithItem(FPrimaryAssetId ItemId) const
+{
+	for (int32 i=0; i<Items.Num(); i++)
+	{
+		if (Items[i].IsOccupied and !IsSlotLoading[i] and Items[i].AssetId == ItemId)		
+			return i;
+	}
+	return INDEX_NONE;
+}
+
 bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 {
 	if (!ItemId.IsValid())

@@ -52,6 +52,12 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	UPZ_ItemDataAsset* GetSelectedItemData() const;
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	bool HasItem(FPrimaryAssetId ItemId) const;
+	
+	UFUNCTION(BlueprintCallable, Category="Inventory")
+	int32 FindSlotWithItem(FPrimaryAssetId ItemId) const;
 
 	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")

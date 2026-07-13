@@ -7,6 +7,7 @@
 #include "PZ_InteractionComponent.generated.h"
 
 
+class IPZ_Interactable;
 class APZ_ItemDummy;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -16,17 +17,11 @@ class SPICYBLUEB_API UPZ_InteractionComponent : public UActorComponent
 
 public:
 	UPZ_InteractionComponent();
-	
-	void AddInteractable(APZ_ItemDummy* Pickup);
-	void RemoveInteractable(APZ_ItemDummy* Pickup);
-	APZ_ItemDummy* GetClosestInteractable();
+	void AddInteractable(const TScriptInterface<IPZ_Interactable>& Interactable);
+	void RemoveInteractable(const TScriptInterface<IPZ_Interactable>& Interactable);
+	TScriptInterface<IPZ_Interactable> GetClosestInteractable();
 
 protected:
-	virtual void BeginPlay() override;
-	
-	UPROPERTY()	
-	TObjectPtr<APZ_ItemDummy> OverlappingItemPickup;
-	
 	UPROPERTY()
-	TArray<TObjectPtr<APZ_ItemDummy>> Interactables;
+	TArray<TScriptInterface<IPZ_Interactable>> Interactables;
 };

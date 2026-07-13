@@ -12,49 +12,40 @@ UPZ_InteractionComponent::UPZ_InteractionComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UPZ_InteractionComponent::AddInteractable(APZ_ItemDummy* Pickup)
+void UPZ_InteractionComponent::AddInteractable(const TScriptInterface<IPZ_Interactable>& Interactable)
 {
-	Interactables.Add(Pickup);
+	Interactables.AddUnique(Interactable);
 }
 
-void UPZ_InteractionComponent::RemoveInteractable(APZ_ItemDummy* Pickup)
+void UPZ_InteractionComponent::RemoveInteractable(const TScriptInterface<IPZ_Interactable>& Interactable)
 {
-	if (!Interactables.Contains(Pickup)) return;
-	Interactables.Remove(Pickup);
+	if (!Interactables.Contains(Interactable)) return;
+	Interactables.Remove(Interactable);
 }
 
-APZ_ItemDummy* UPZ_InteractionComponent::GetClosestInteractable()
+TScriptInterface<IPZ_Interactable> UPZ_InteractionComponent::GetClosestInteractable()
 {
-	if (Interactables.IsEmpty()) return nullptr;	
-	if (Interactables.Num() == 1) return Interactables[0];
+	if (Interactables.IsEmpty()) return nullptr;
 	
 	ACharacter* PlayerCharacter = Cast<ACharacter>(GetOwner());	
 	if (!PlayerCharacter) return nullptr;
 	
-	const FVector PlayerLocation = PlayerCharacter->GetActorLocation();	
-	APZ_ItemDummy* BestInteractable = nullptr;
+	const FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+	TScriptInterface<IPZ_Interactable> BestInteractable = nullptr;
 	float BestDistanceSquared = FLT_MAX;
-	for (int32 i = 0; i < Interactables.Num(); i++)
+	
+	for (const TScriptInterface<IPZ_Interactable>& Interactable : Interactables)
 	{
-		if (!Interactables.IsValidIndex(i) or !IsValid(Interactables[i]))
-			continue;
+		AActor* Actor = Cast<AActor>(Interactable.GetObject());	
+		if (!IsValid(Actor)) continue;
 		
-		const FVector InteractableLocation = Interactables[i]->GetActorLocation();		
-		const float DistanceSquared = (InteractableLocation - PlayerLocation).SizeSquared();			
+		const float DistanceSquared = (Actor->GetActorLocation() - PlayerLocation).SizeSquared();	
 		if (DistanceSquared < BestDistanceSquared)
 		{
-			BestInteractable = Interactables[i];
+			BestInteractable = Interactable;
 			BestDistanceSquared = DistanceSquared;
 		}
 	}
 	
 	return BestInteractable;
 }
-
-
-void UPZ_InteractionComponent::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
-

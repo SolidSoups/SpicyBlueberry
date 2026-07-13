@@ -412,20 +412,15 @@ void APZ_PlayerCharacter::OnRep_AttackTrigger()
 
 void APZ_PlayerCharacter::Server_Interact_Implementation()
 {
+	if (!InteractionComponent) return;
+	
 	// Always pick up items first
-	if (InteractionComponent)
+	TScriptInterface<IPZ_Interactable> Interactable = InteractionComponent->GetClosestInteractable();
+	if (IsValid(Interactable.GetObject()))
 	{
-		APZ_ItemDummy* ClosestInteractable = InteractionComponent->GetClosestInteractable();
-		if (IsValid(ClosestInteractable) and 
-			ClosestInteractable->ItemId.IsValid() and
-			InventoryComponent->AddItem(ClosestInteractable->ItemId))
-		{
-			InteractionComponent->RemoveInteractable(ClosestInteractable);	
-			ClosestInteractable->Destroy();
-			return;
-		}
-	}
-
+		Interactable->OnInteract(this);	
+	}	
+	
 	// Carrying -> try to deliver at the delivery point I'm currently on.
 	if (CarriedPizza)
 	{
@@ -455,7 +450,7 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 	}
 	else if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not in a restaurant"));
+		//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Orange, TEXT("Not in a restaurant"));
 	}
 }
 
