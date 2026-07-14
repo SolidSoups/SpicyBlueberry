@@ -4,10 +4,16 @@
 #include "PZ_InventorySlotWidget.h"
 
 #include "Components/Image.h"
+#include "Components/TextBlock.h"
 #include "Components/WidgetSwitcher.h"
 #include "Engine/AssetManager.h"
 #include "Engine/Engine.h"
 #include "Engine/Texture2D.h"
+
+void UPZ_InventorySlotWidget::Initialize(int32 SlotIndex)
+{
+	SlotTextBlock->SetText(FText::FromString(FString::FromInt(SlotIndex + 1)));
+}
 
 void UPZ_InventorySlotWidget::SetItemData(const UPZ_ItemDataAsset* ItemAsset)
 {

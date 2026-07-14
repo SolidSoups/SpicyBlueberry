@@ -45,6 +45,7 @@ void UPZ_InventoryWidget::NativeConstruct()
 		UPZ_InventorySlotWidget* SlotWidget = CreateWidget<UPZ_InventorySlotWidget>(GetOwningPlayer(), SlotWidgetClass);
 		SlotVerticalBox->AddChildToVerticalBox(SlotWidget);
 		SlotWidgets.Add(SlotWidget);
+		SlotWidget->Initialize(i);
 	}
 	
 	// Seed state from inventory component

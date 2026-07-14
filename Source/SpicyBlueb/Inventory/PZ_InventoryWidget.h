@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "PZ_InventoryWidget.generated.h"
 
+class UTextBlock;
 class UVerticalBox;
 class UPZ_InventoryComponent;
 class UPZ_ItemDataAsset;
