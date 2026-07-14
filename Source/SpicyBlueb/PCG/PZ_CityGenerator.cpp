@@ -2,6 +2,7 @@
 
 #include "DrawDebugHelpers.h"
 #include "PCGComponent.h"
+#include "PZ_CityGeometry.h"
 #include "Components/SplineComponent.h"
 
 
@@ -14,6 +15,14 @@ APZ_CityGenerator::APZ_CityGenerator()
 
 	PCG = CreateDefaultSubobject<UPCGComponent>(TEXT("PCG"));
 	PCG->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+}
+
+void APZ_CityGenerator::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (bGenerateOnBeginPlay)
+		RunGeneration();
 }
 
 void APZ_CityGenerator::Regenerate(int32 NewSeed)
@@ -49,6 +58,8 @@ void APZ_CityGenerator::ClearCity()
 	{
 		FlushPersistentDebugLines(World);
 	}
+	
+	IsCityReady = false;
 }
 
 TArray<FVector> APZ_CityGenerator::GetRestaurantSpawns(int32 NumPlayers) const
@@ -75,70 +86,53 @@ TArray<FVector> APZ_CityGenerator::GetDeliveryCandidates() const
 	return Out;
 }
 
-void APZ_CityGenerator::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (bGenerateOnBeginPlay)
-		RunGeneration();
-}
-
 void APZ_CityGenerator::RunGeneration()
 {
-	FRandomStream Rng(MasterSeed);
-	Blocks.Reset();
-
-	// Clear old splines before rebuilding.
-	for (USplineComponent* S : RoadSplines)
-	{
-		if (S) S->DestroyComponent();
-	}
-	RoadSplines.Reset();
+	ClearCity();
 	
-	if (PCG)
-	{
-		PCG->GenerateLocal(true);
-	}
-
+	FRandomStream Rng(MasterSeed);
+	
 	TArray<FVector2D> Points;
-	ScatterPoints(Rng, Points);
-
+	GenerateScatteredPoints(NumBlocksToMake, Rng, Points);
 	if (Points.Num() < 3) return;
 
 	TArray<int32> Triangles;
-	Triangulate(Points, Triangles);
+	TriangulatePoints(Points, Triangles);
 
 	BuildBlocksFromDelaunay(Points, Triangles);
 	BuildRoadSplines(Points, Triangles);
+	
+	if (PCG)
+		PCG->GenerateLocal(true);
 
 	if (bDrawDebug)
 	{
 		DrawDebugNetwork();
 	}
 	
-	bCityReady = true;
+	IsCityReady = true;
 	OnCityGenerated.Broadcast();
 }
 
-void APZ_CityGenerator::ScatterPoints(FRandomStream& Rng, TArray<FVector2D>& OutPoints) const
+void APZ_CityGenerator::GenerateScatteredPoints(int32 NumPoints, FRandomStream& Range, TArray<FVector2D>& OutPoints) const
 {
 	OutPoints.Reset();
 
-	const int32 MaxAttempts = BlockCount * 30;
+	const int32 MaxAttempts = NumPoints * 30;
 	int32 Attempts = 0;
 
-	while (OutPoints.Num() < BlockCount && Attempts < MaxAttempts)
+	while (OutPoints.Num() < NumPoints and Attempts < MaxAttempts)
 	{
 		++Attempts;
 
 		const FVector2D Candidate(
-			Rng.FRandRange(-AreaHalfExtent.X, AreaHalfExtent.X),
-			Rng.FRandRange(-AreaHalfExtent.Y, AreaHalfExtent.Y));
+			Range.FRandRange(-AreaHalfExtent.X, AreaHalfExtent.X),
+			Range.FRandRange(-AreaHalfExtent.Y, AreaHalfExtent.Y));
 
 		bool bTooClose = false;
-		for (const FVector2D& P : OutPoints)
+		for (const FVector2D& Point : OutPoints)
 		{
-			if (FVector2D::DistSquared(P, Candidate) < MinPointSpacing * MinPointSpacing)
+			if (FVector2D::DistSquared(Point, Candidate) < MinPointSpacing * MinPointSpacing)
 			{
 				bTooClose = true;
 				break;
@@ -152,14 +146,14 @@ void APZ_CityGenerator::ScatterPoints(FRandomStream& Rng, TArray<FVector2D>& Out
 	}
 }
 
-void APZ_CityGenerator::Triangulate(const TArray<FVector2D>& Points, TArray<int32>& OutTriangles) const
+void APZ_CityGenerator::TriangulatePoints(const TArray<FVector2D>& Points, TArray<int32>& OutTriangles) const
 {
 	// Bowyer-Watson. Deterministic: depends only on the point set (which is
 	// seeded), not on any runtime randomness.
 	OutTriangles.Reset();
 
-	const int32 N = Points.Num();
-	if (N < 3) return;
+	const int32 NumPoints = Points.Num();
+	if (NumPoints < 3) return;
 
 	// Work on a local copy so we can append the super-triangle vertices.
 	TArray<FVector2D> Pts = Points;
@@ -189,13 +183,13 @@ void APZ_CityGenerator::Triangulate(const TArray<FVector2D>& Points, TArray<int3
 
 	auto InCircumcircle = [&](int32 Ai, int32 Bi, int32 Ci, const FVector2D& P) -> bool
 	{
-		const FVector2D CC = Circumcenter(Pts[Ai], Pts[Bi], Pts[Ci]);
+		const FVector2D CC = PZCityGeometry::CalculateCircumcenter(Pts[Ai], Pts[Bi], Pts[Ci]);
 		const float RSq = FVector2D::DistSquared(CC, Pts[Ai]);
 		return FVector2D::DistSquared(CC, P) <= RSq + KINDA_SMALL_NUMBER;
 	};
 
 	// Insert each real point one at a time.
-	for (int32 i = 0; i < N; ++i)
+	for (int32 i = 0; i < NumPoints; ++i)
 	{
 		const FVector2D P = Pts[i];
 
@@ -238,7 +232,7 @@ void APZ_CityGenerator::Triangulate(const TArray<FVector2D>& Points, TArray<int3
 	for (int32 t = Tris.Num() - 3; t >= 0; t -= 3)
 	{
 		const int32 A = Tris[t], B = Tris[t + 1], C = Tris[t + 2];
-		if (A >= N || B >= N || C >= N)
+		if (A >= NumPoints || B >= NumPoints || C >= NumPoints)
 		{
 			Tris.RemoveAt(t, 3, EAllowShrinking::No);
 		}
@@ -260,7 +254,7 @@ void APZ_CityGenerator::BuildBlocksFromDelaunay(const TArray<FVector2D>& Points,
 	for (int32 t = 0; t + 2 < Triangles.Num(); t += 3)
 	{
 		const int32 A = Triangles[t], B = Triangles[t + 1], C = Triangles[t + 2];
-		const FVector2D CC = Circumcenter(Points[A], Points[B], Points[C]);
+		const FVector2D CC = PZCityGeometry::CalculateCircumcenter(Points[A], Points[B], Points[C]);
 		CellCorners[A].Add(CC);
 		CellCorners[B].Add(CC);
 		CellCorners[C].Add(CC);
@@ -283,14 +277,14 @@ void APZ_CityGenerator::BuildBlocksFromDelaunay(const TArray<FVector2D>& Points,
 		});
 
 		// Clip the cell to the city rectangle so edge cells don't stretch.
-		const TArray<FVector2D> Clipped = ClipToBounds(Corners, AreaHalfExtent);
+		const TArray<FVector2D> Clipped = PZCityGeometry::ClipPolygonToBounds(Corners, AreaHalfExtent);
 		if (Clipped.Num() < 3)
 		{
 			continue;
 		}
 
 		// Shrink inward to open the road gap between neighbouring blocks.
-		const TArray<FVector2D> Shrunk = ShrinkPolygon(Clipped, RoadHalfWidth);
+		const TArray<FVector2D> Shrunk = PZCityGeometry::ShrinkPolygon(Clipped, RoadHalfWidth);
 
 		FPZ_Block Block;
 		Block.Center = Origin + FVector(Site.X, Site.Y, 0.f);
@@ -322,7 +316,7 @@ void APZ_CityGenerator::BuildRoadSplines(const TArray<FVector2D>& Points, const 
 	for (int32 t = 0; t + 2 < Triangles.Num(); t += 3)
 	{
 		const int32 A = Triangles[t], B = Triangles[t + 1], C = Triangles[t + 2];
-		const FVector2D CC = Circumcenter(Points[A], Points[B], Points[C]);
+		const FVector2D CC = PZCityGeometry::CalculateCircumcenter(Points[A], Points[B], Points[C]);
 
 		EdgeToCircumcenters.FindOrAdd(EdgeKey(A, B)).Add(CC);
 		EdgeToCircumcenters.FindOrAdd(EdgeKey(B, C)).Add(CC);
@@ -341,7 +335,7 @@ void APZ_CityGenerator::BuildRoadSplines(const TArray<FVector2D>& Points, const 
 		FVector2D P1 = Pair.Value[1];
 
 		// Keep roads inside the city rectangle.
-		if (!ClipSegmentToBounds(P0, P1, AreaHalfExtent))
+		if (!PZCityGeometry::ClipSegmentToBounds(P0, P1, AreaHalfExtent))
 		{
 			continue;
 		}
@@ -403,186 +397,4 @@ void APZ_CityGenerator::DrawDebugNetwork() const
 		const FVector B = Spline->GetLocationAtSplinePoint(1, ESplineCoordinateSpace::World) + FVector(0, 0, Z);
 		DrawDebugLine(World, A, B, FColor::Blue, true, -1.f, 0, 18.f);
 	}
-}
-
-FVector2D APZ_CityGenerator::Circumcenter(const FVector2D& A, const FVector2D& B, const FVector2D& C)
-{
-	const float D = 2.f * (A.X * (B.Y - C.Y) + B.X * (C.Y - A.Y) + C.X * (A.Y - B.Y));
-	if (FMath::IsNearlyZero(D))
-	{
-		return (A + B + C) / 3.f;
-	}
-
-	const float A2 = A.X * A.X + A.Y * A.Y;
-	const float B2 = B.X * B.X + B.Y * B.Y;
-	const float C2 = C.X * C.X + C.Y * C.Y;
-
-	const float Ux = (A2 * (B.Y - C.Y) + B2 * (C.Y - A.Y) + C2 * (A.Y - B.Y)) / D;
-	const float Uy = (A2 * (C.X - B.X) + B2 * (A.X - C.X) + C2 * (B.X - A.X)) / D;
-	return FVector2D(Ux, Uy);
-}
-
-TArray<FVector2D> APZ_CityGenerator::ShrinkPolygon(const TArray<FVector2D>& Poly, float Inset)
-{
-	TArray<FVector2D> Out;
-	const int32 N = Poly.Num();
-	if (N < 3) return Poly;
-
-	FVector2D Centroid(0, 0);
-	for (const FVector2D& P : Poly) Centroid += P;
-	Centroid /= N;
-
-	Out.Reserve(N);
-	for (const FVector2D& P : Poly)
-	{
-		FVector2D Dir = (Centroid - P);
-		const float Len = Dir.Size();
-		if (Len > KINDA_SMALL_NUMBER)
-		{
-			Dir /= Len;
-			const float Move = FMath::Min(Inset, Len * 0.45f);
-			Out.Add(P + Dir * Move);
-		}
-		else
-		{
-			Out.Add(P);
-		}
-	}
-	return Out;
-}
-
-float APZ_CityGenerator::PolygonSignedArea(const TArray<FVector2D>& Poly)
-{
-	float Area = 0.f;
-	const int32 N = Poly.Num();
-	for (int32 i = 0; i < N; ++i)
-	{
-		const FVector2D& P0 = Poly[i];
-		const FVector2D& P1 = Poly[(i + 1) % N];
-		Area += (P0.X * P1.Y - P1.X * P0.Y);
-	}
-	return Area * 0.5f;
-}
-
-TArray<FVector2D> APZ_CityGenerator::ClipToBounds(const TArray<FVector2D>& Poly, const FVector2D& HalfExtent)
-{
-	TArray<FVector2D> Output = Poly;
-
-	// Each edge is defined by a test "is point inside?" and an intersection solve.
-	// Order: left (x >= -hx), right (x <= hx), bottom (y >= -hy), top (y <= hy).
-	const float HX = HalfExtent.X;
-	const float HY = HalfExtent.Y;
-
-	auto ClipEdge = [](const TArray<FVector2D>& In, TFunctionRef<bool(const FVector2D&)> Inside,
-	                   TFunctionRef<FVector2D(const FVector2D&, const FVector2D&)> Intersect)-> TArray<FVector2D>
-	{
-		TArray<FVector2D> Out;
-		const int32 N = In.Num();
-		if (N == 0) return Out;
-
-		for (int32 i = 0; i < N; ++i)
-		{
-			const FVector2D& Cur = In[i];
-			const FVector2D& Prev = In[(i + N - 1) % N];
-			const bool bCurIn = Inside(Cur);
-			const bool bPrevIn = Inside(Prev);
-
-			if (bCurIn)
-			{
-				if (!bPrevIn) Out.Add(Intersect(Prev, Cur));
-				Out.Add(Cur);
-			}
-			else if (bPrevIn)
-			{
-				Out.Add(Intersect(Prev, Cur));
-			}
-		}
-		return Out;
-	};
-
-	// Left edge: x >= -HX
-	Output = ClipEdge(Output,
-	                  [&](const FVector2D& P) { return P.X >= -HX; },
-	                  [&](const FVector2D& A, const FVector2D& B)
-	                  {
-		                  const float T = (-HX - A.X) / (B.X - A.X);
-		                  return FVector2D(-HX, A.Y + T * (B.Y - A.Y));
-	                  });
-
-	// Right edge: x <= HX
-	Output = ClipEdge(Output,
-	                  [&](const FVector2D& P) { return P.X <= HX; },
-	                  [&](const FVector2D& A, const FVector2D& B)
-	                  {
-		                  const float T = (HX - A.X) / (B.X - A.X);
-		                  return FVector2D(HX, A.Y + T * (B.Y - A.Y));
-	                  });
-
-	// Bottom edge: y >= -HY
-	Output = ClipEdge(Output,
-	                  [&](const FVector2D& P) { return P.Y >= -HY; },
-	                  [&](const FVector2D& A, const FVector2D& B)
-	                  {
-		                  const float T = (-HY - A.Y) / (B.Y - A.Y);
-		                  return FVector2D(A.X + T * (B.X - A.X), -HY);
-	                  });
-
-	// Top edge: y <= HY
-	Output = ClipEdge(Output,
-	                  [&](const FVector2D& P) { return P.Y <= HY; },
-	                  [&](const FVector2D& A, const FVector2D& B)
-	                  {
-		                  const float T = (HY - A.Y) / (B.Y - A.Y);
-		                  return FVector2D(A.X + T * (B.X - A.X), HY);
-	                  });
-
-	return Output;
-}
-
-bool APZ_CityGenerator::ClipSegmentToBounds(FVector2D& A, FVector2D& B, const FVector2D& HalfExtent)
-{
-	// Liang-Barsky segment clip against the axis-aligned city rectangle.
-	const float HX = HalfExtent.X;
-	const float HY = HalfExtent.Y;
-	
-
-	float T0 = 0.f, T1 = 1.f;
-	const float DX = B.X - A.X;
-	const float DY = B.Y - A.Y;
-
-	const float P[4] = {-DX, DX, -DY, DY};
-	const float Q[4] = {
-		static_cast<float>(A.X) + HX,
-		HX - static_cast<float>(A.X),
-		static_cast<float>(A.Y) + HY,
-		HY - static_cast<float>(A.Y)
-	};
-
-	for (int32 i = 0; i < 4; ++i)
-	{
-		if (FMath::IsNearlyZero(P[i]))
-		{
-			if (Q[i] < 0.f) return false; // parallel and outside
-		}
-		else
-		{
-			const float R = Q[i] / P[i];
-			if (P[i] < 0.f)
-			{
-				if (R > T1) return false;
-				if (R > T0) T0 = R;
-			}
-			else
-			{
-				if (R < T0) return false;
-				if (R < T1) T1 = R;
-			}
-		}
-	}
-
-	const FVector2D NA(A.X + T0 * DX, A.Y + T0 * DY);
-	const FVector2D NB(A.X + T1 * DX, A.Y + T1 * DY);
-	A = NA;
-	B = NB;
-	return true;
 }

@@ -42,7 +42,7 @@ void APZ_GameModeBase::HookCity()
 		return;
 	}
 
-	if (City->bCityReady)
+	if (City->IsCityReady)
 	{
 		OnCityReady();
 	}
