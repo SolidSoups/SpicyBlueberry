@@ -1,7 +1,9 @@
-# 5 Minute Pizza — UE 5.8 Weekend Prototype
+# 5 Minute Pizza — UE 5.8 Multiplayer Project
 
 ## Overview
 Competitive multiplayer game. Players deliver pizzas on foot from their restaurant to delivery points for score. Score weighted by delivery order, time, and pizza quality. Players can sabotage each other physically. World generates from a shared seed; delivery points shift during a run.
+
+Started as a weekend prototype; that timebox is long past and this is now an ongoing project. Prioritize correct, maintainable implementations over quick hacks — do not default to "good enough for a jam" reasoning or preface suggestions with weekend-scope caveats.
 
 ## Tech Stack
 - Unreal Engine 5.8
@@ -49,10 +51,10 @@ This project exists so each person can learn a specific new UE 5.8 system, not j
 ## Architecture Notes
 - Pizza actor: `Replicated` struct for quality state (contributing factors + resulting score float), separate from transform/physics replication
 - Delivery point set: replicated array, server-authoritative, updated on batch completion/regeneration — not regenerated locally like static world, since it changes at runtime and desync here breaks scoring fairness
-- Combat: shove/throw as server RPCs with client-side physics prediction if time allows, otherwise server-authoritative only for the weekend build
+- Combat: shove/throw as server RPCs with client-side physics prediction if time allows, otherwise server-authoritative only
 - Ability system: single-slot, replicated ability ID/state on player character
 
-## Scope Constraints (weekend timebox)
+## Scope Constraints
 - No vehicles (mechanic removed from prior draft)
 - Fixed set of pizza-degradation triggers (2-3 max: bad assembly, wrong contact, cooldown)
 - One ability implemented for the ability system's first pass (floating pizza)
@@ -66,7 +68,7 @@ This project exists so each person can learn a specific new UE 5.8 system, not j
 
 ## Session Norms
 - State current implementation status at start of each new conversation if resuming work
-- Flag when a request would break the weekend scope constraints above rather than silently expanding scope
+- Flag when a request would break the scope constraints above rather than silently expanding scope
 - Code snippets: simple, minimal abstraction, no unrequested inheritance/interfaces
 - Do not resolve open design questions unprompted; surface them, do not decide them
 
