@@ -10,7 +10,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 #include "Engine/World.h"
-#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Core/Components/PZ_InteractionComponent.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 
 APZ_Restaurant::APZ_Restaurant()

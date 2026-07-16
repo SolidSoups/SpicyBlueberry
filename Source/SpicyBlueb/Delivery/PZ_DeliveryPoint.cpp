@@ -8,7 +8,7 @@
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 #include "Engine/World.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerState.h"
-#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Core/Components/PZ_InteractionComponent.h"
 #include "SpicyBlueb/Inventory/PZ_InventoryComponent.h"
 
 APZ_DeliveryPoint::APZ_DeliveryPoint()

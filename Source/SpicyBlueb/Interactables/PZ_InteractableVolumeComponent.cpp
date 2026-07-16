@@ -7,7 +7,7 @@
 #include "Engine/Engine.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
 #include "SpicyBlueb/Interactables/PZ_Interactable.h"
-#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Core/Components/PZ_InteractionComponent.h"
 
 UPZ_InteractableVolumeComponent::UPZ_InteractableVolumeComponent()
 {

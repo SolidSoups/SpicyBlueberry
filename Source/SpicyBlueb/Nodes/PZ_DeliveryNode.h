@@ -4,11 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "SpicyBlueb/Core/Subsystems/PZ_ItemAssetRequester.h"
 #include "SpicyBlueb/Interactables/PZ_Interactable.h"
 #include "PZ_DeliveryNode.generated.h"
-
-//
-//
 
 class UPZ_DeliveryNodeWidget;
 class UWidgetComponent;
@@ -55,8 +53,15 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
+	// Settings	
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float AcceptOrderDelay = 1.5f;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TArray<FPZ_DeliveryNodeOrder> RequiredOrders;
+	
+	// UI
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UWidgetComponent> StatusWidget;;
@@ -67,6 +72,8 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UPZ_DeliveryNodeWidget> SpawnedWidget;
 	
+	// Volume
+	
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<class USphereComponent> PickupVolume;
 	
@@ -76,23 +83,17 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<class UPZ_InteractableVolumeComponent> InteractionVolume;
 	
-	// The required items to fulfill this order
-	UPROPERTY(EditDefaultsOnly)
-	TArray<FPZ_DeliveryNodeOrder> RequiredOrders;
 	
 private:
-	TMap<TWeakObjectPtr<APZ_ItemDummy>, FTimerHandle> AcceptOrderTimers;
-	
-	TArray<FPrimaryAssetId> ItemsFromPickupZone;
-	TArray<FPrimaryAssetId> LoadedAssetIds;
-	TMap<FPrimaryAssetId, TWeakObjectPtr<UPZ_ItemDataAsset>> LoadedItemAssets;
-	
-	void RefreshUI();
 	UFUNCTION()
 	void OnPickupItemConfirmed(APZ_ItemDummy* Apz_ItemDummy);
+	TMap<TWeakObjectPtr<APZ_ItemDummy>, FTimerHandle> AcceptOrderTimers;
+	
+	void RefreshUI();
 	void LoadAllRequiredAssets();
 	void CleanUp();
 	
-	UFUNCTION()
-	void OnAssetsLoaded();
+	void OnAssetsLoaded(TArray<FPrimaryAssetId> LoadedAssetIds);
+	FPZ_ItemAssetRequester ItemRequester;
+	TMap<FPrimaryAssetId, TWeakObjectPtr<UPZ_ItemDataAsset>> LoadedItemAssets;
 };

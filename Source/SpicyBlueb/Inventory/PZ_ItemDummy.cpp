@@ -9,7 +9,7 @@
 #include "Components/SphereComponent.h"
 #include "Engine/AssetManager.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
-#include "SpicyBlueb/Core/Player/Components/PZ_InteractionComponent.h"
+#include "SpicyBlueb/Core/Components/PZ_InteractionComponent.h"
 
 
 APZ_ItemDummy::APZ_ItemDummy()

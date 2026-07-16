@@ -95,13 +95,14 @@ void APZ_DeliveryNode::BeginPlay()
 void APZ_DeliveryNode::LoadAllRequiredAssets()
 {
 	// batch all asset ids together and load them together
+	TArray<FPrimaryAssetId> AssetIdsToLoad;
 	for (int32 i = 0; i < RequiredOrders.Num(); i++)
 	{
-		LoadedAssetIds.AddUnique(RequiredOrders[i].RequiredItemId);
+		AssetIdsToLoad.AddUnique(RequiredOrders[i].RequiredItemId);
 	}
-	UAssetManager::Get().LoadPrimaryAssets(LoadedAssetIds,
-	                                       TArray<FName>(),
-	                                       FStreamableDelegate::CreateUObject(this, &APZ_DeliveryNode::OnAssetsLoaded));
+	
+	ItemRequester.LoadBatch(GetWorld(), AssetIdsToLoad, 
+		FOnAssetBatchLoadedDelegate::CreateUObject(this, &APZ_DeliveryNode::OnAssetsLoaded));
 }
 
 void APZ_DeliveryNode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -112,12 +113,8 @@ void APZ_DeliveryNode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void APZ_DeliveryNode::CleanUp()
 {
-	// Clean up all loaded assets
-	if (!LoadedAssetIds.IsEmpty())
-	{
-		UAssetManager::Get().UnloadPrimaryAssets(LoadedAssetIds);
-		LoadedAssetIds.Reset();
-	}
+	// Release assets
+	ItemRequester.ReleaseAll(GetWorld());
 	LoadedItemAssets.Reset();
 
 	// Clean up all timers
@@ -130,6 +127,7 @@ void APZ_DeliveryNode::CleanUp()
 	}
 	AcceptOrderTimers.Reset();
 
+	// Clear widget
 	if (SpawnedWidget)
 		SpawnedWidget->ClearState();
 }
@@ -152,6 +150,17 @@ void APZ_DeliveryNode::OnInteractZoneExited(APZ_PlayerCharacter* Interactor)
 	GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Red, TEXT("DeliveryNode::OnZoneExited"));
 }
 
+
+void APZ_DeliveryNode::OnAssetsLoaded(TArray<FPrimaryAssetId> LoadedAssetIds)
+{
+	LoadedItemAssets.Reset();
+	for (const FPrimaryAssetId& AssetId : LoadedAssetIds)
+	{
+		LoadedItemAssets.Add(AssetId, Cast<UPZ_ItemDataAsset>(
+			UAssetManager::Get().GetPrimaryAssetObject(AssetId)));
+	}
+	RefreshUI();
+}
 
 void APZ_DeliveryNode::RefreshUI()
 {
@@ -191,15 +200,5 @@ void APZ_DeliveryNode::RefreshUI()
 void APZ_DeliveryNode::OnPickupItemConfirmed(APZ_ItemDummy* ItemDummy)
 {
 	PickupZoneItems.Add(ItemDummy);	
-	RefreshUI();
-}
-
-void APZ_DeliveryNode::OnAssetsLoaded()
-{
-	LoadedItemAssets.Reset();
-	for (const FPrimaryAssetId& AssetId : LoadedAssetIds)
-	{
-		LoadedItemAssets.Add(AssetId, Cast<UPZ_ItemDataAsset>(UAssetManager::Get().GetPrimaryAssetObject(AssetId)));
-	}
 	RefreshUI();
 }

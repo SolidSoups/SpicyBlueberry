@@ -5,7 +5,7 @@
 
 #include "Components/SkeletalMeshComponent.h"
 #include "SpicyBlueb/Core/Player/PZ_PlayerCharacter.h"
-#include "SpicyBlueb/Core/Player/Components/PZ_EquipmentComponent.h"
+#include "SpicyBlueb/Core/Components/PZ_EquipmentComponent.h"
 #include "SpicyBlueb/Equippables/PZ_EquippableActor.h"
 
 void UPZ_AnimNotify_MeleeWindow::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
