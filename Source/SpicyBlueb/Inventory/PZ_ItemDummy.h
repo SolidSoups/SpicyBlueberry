@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "SpicyBlueb/Interfaces/PZ_Interactable.h"
+#include "SpicyBlueb/Interactables/PZ_Interactable.h"
 #include "PZ_ItemDummy.generated.h"
 
 class UPZ_ItemDataAsset;
@@ -13,8 +13,6 @@ class UPZ_ItemDataAsset;
 UCLASS()
 class SPICYBLUEB_API APZ_ItemDummy : public AActor, public IPZ_Interactable
 {
-
-private:
 	GENERATED_BODY()
 
 public:
@@ -32,9 +30,8 @@ protected:
 	void OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<class UBoxComponent> CollisionBox;
-	
-	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<class USphereComponent> PickupVolume;
 	
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<class UBoxComponent> CollisionBox;
 };

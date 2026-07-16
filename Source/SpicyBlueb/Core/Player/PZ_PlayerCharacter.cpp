@@ -95,6 +95,12 @@ FVector APZ_PlayerCharacter::GetFacingDirection() const
 	return FRotator(0.f, RepFacingYaw, 0.f).Vector();
 }
 
+FRotator APZ_PlayerCharacter::GetCameraRotation() const
+{
+	check(Camera);
+	return Camera->GetComponentRotation();
+}
+
 void APZ_PlayerCharacter::CarryPizza(APZ_Pizza* Pizza)
 {
 	if (!HasAuthority() || !Pizza) return;
@@ -435,7 +441,6 @@ void APZ_PlayerCharacter::Server_Interact_Implementation()
 	if (IsValid(Interactable.GetObject()))
 	{
 		Interactable->OnInteract(this);
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Interacted!"));
 	}
 }
 

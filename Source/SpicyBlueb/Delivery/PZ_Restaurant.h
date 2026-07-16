@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "SpicyBlueb/Interfaces/PZ_Interactable.h"
+#include "SpicyBlueb/Interactables/PZ_Interactable.h"
 #include "PZ_Restaurant.generated.h"
 
 class UPZ_ItemDataAsset;

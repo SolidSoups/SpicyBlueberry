@@ -15,12 +15,14 @@ UPZ_InteractionComponent::UPZ_InteractionComponent()
 void UPZ_InteractionComponent::AddInteractable(const TScriptInterface<IPZ_Interactable>& Interactable)
 {
 	Interactables.AddUnique(Interactable);
+	Interactable->OnInteractZoneEntered(Cast<APZ_PlayerCharacter>(GetOwner()));
 }
 
 void UPZ_InteractionComponent::RemoveInteractable(const TScriptInterface<IPZ_Interactable>& Interactable)
 {
 	if (!Interactables.Contains(Interactable)) return;
 	Interactables.Remove(Interactable);
+	Interactable->OnInteractZoneExited(Cast<APZ_PlayerCharacter>(GetOwner()));
 }
 
 TScriptInterface<IPZ_Interactable> UPZ_InteractionComponent::GetClosestInteractable()

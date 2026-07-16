@@ -62,6 +62,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	FVector GetFacingDirection() const ;
 	
+	UFUNCTION(BlueprintCallable, Category = "Look")
+	FRotator GetCameraRotation() const;
+	
 	UPZ_InventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 	UPZ_InteractionComponent* GetInteractionComponent() const { return InteractionComponent; }
 	UPZ_EquipmentComponent* GetEquipmentComponent() const { return EquipmentComponent; }

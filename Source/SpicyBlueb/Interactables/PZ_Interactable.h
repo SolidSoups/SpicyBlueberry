@@ -15,5 +15,7 @@ class SPICYBLUEB_API IPZ_Interactable
 	GENERATED_BODY()
 	
 public:
-	virtual void OnInteract(APZ_PlayerCharacter* Interactor) = 0;
+	virtual void OnInteract(APZ_PlayerCharacter* Interactor) {}
+	virtual void OnInteractZoneEntered(APZ_PlayerCharacter* Interactor) {}
+	virtual void OnInteractZoneExited(APZ_PlayerCharacter* Interactor) {}
 };
