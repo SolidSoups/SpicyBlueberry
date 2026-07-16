@@ -40,6 +40,13 @@ APZ_DeliveryNode::APZ_DeliveryNode()
 	InteractionVolume->RegisterVolume(PickupVolume);
 }
 
+void APZ_DeliveryNode::SetRequiredOrders(const TArray<FPZ_DeliveryNodeOrder>& InRequiredOrders)
+{
+	RequiredOrders = InRequiredOrders;
+	CleanUp();
+	LoadAllRequiredAssets();
+}
+
 void APZ_DeliveryNode::OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
                                                   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
                                                   const FHitResult& SweepResult)
@@ -47,7 +54,12 @@ void APZ_DeliveryNode::OnPickupVolumeBeginOverlap(UPrimitiveComponent* Overlappe
 	if (auto* Dummy = Cast<APZ_ItemDummy>(OtherActor))
 	{
 		PickupZoneItems.AddUnique(Dummy);
-		RefreshUI();
+		GetWorldTimerManager().SetTimer(
+			AcceptOrderTimers.FindOrAdd(Dummy),
+			FTimerDelegate::CreateUObject(this, &APZ_DeliveryNode::OnPickupItemConfirmed, Dummy),
+			AcceptOrderDelay,
+			false
+		);
 	}
 }
 
@@ -56,8 +68,11 @@ void APZ_DeliveryNode::OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedC
 {
 	if (auto* Dummy = Cast<APZ_ItemDummy>(OtherActor))
 	{
-		PickupZoneItems.Remove(Dummy);
-		RefreshUI();
+		if (FTimerHandle* Handle = AcceptOrderTimers.Find(Dummy))
+		{
+			GetWorldTimerManager().ClearTimer(*Handle);
+			AcceptOrderTimers.Remove(Dummy);
+		}
 	}
 }
 
@@ -72,8 +87,10 @@ void APZ_DeliveryNode::BeginPlay()
 		SpawnedWidget = Cast<UPZ_DeliveryNodeWidget>(StatusWidget->GetWidget());
 	}
 
-	LoadAllRequiredAssets();
+	if (!RequiredOrders.IsEmpty())
+		LoadAllRequiredAssets();
 }
+
 
 void APZ_DeliveryNode::LoadAllRequiredAssets()
 {
@@ -90,13 +107,20 @@ void APZ_DeliveryNode::LoadAllRequiredAssets()
 void APZ_DeliveryNode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
-	UnloadAllRequiredAssets();
+	CleanUp();
 }
 
-void APZ_DeliveryNode::UnloadAllRequiredAssets()
+void APZ_DeliveryNode::CleanUp()
 {
-	UAssetManager::Get().UnloadPrimaryAssets(LoadedAssetIds);
+	// Clean up all loaded assets
+	if (!LoadedAssetIds.IsEmpty())
+	{
+		UAssetManager::Get().UnloadPrimaryAssets(LoadedAssetIds);
+		LoadedAssetIds.Reset();
+	}
 	LoadedItemAssets.Reset();
+
+	// Clean up all timers
 	for (auto& [Dummy,TimerHandle] : AcceptOrderTimers)
 	{
 		if (TimerHandle.IsValid())
@@ -105,6 +129,9 @@ void APZ_DeliveryNode::UnloadAllRequiredAssets()
 		}
 	}
 	AcceptOrderTimers.Reset();
+
+	if (SpawnedWidget)
+		SpawnedWidget->ClearState();
 }
 
 void APZ_DeliveryNode::OnInteract(APZ_PlayerCharacter* Interactor)
@@ -129,7 +156,7 @@ void APZ_DeliveryNode::OnInteractZoneExited(APZ_PlayerCharacter* Interactor)
 void APZ_DeliveryNode::RefreshUI()
 {
 	// Count up the totals for each asset id (there may be several of the same item in the zone)
-	TMap<FPrimaryAssetId, uint32> AssetIdCounts;
+	TMap<FPrimaryAssetId, int32> AssetIdCounts;
 	for (const TWeakObjectPtr<APZ_ItemDummy>& ItemDummy : PickupZoneItems)
 	{
 		if (!ItemDummy.IsValid()) continue;
@@ -148,17 +175,23 @@ void APZ_DeliveryNode::RefreshUI()
 		if (auto ItemAsset = LoadedItemAssets.FindRef(RequiredItemId); ItemAsset.IsValid())
 			IconPath = ItemAsset->Icon.ToSoftObjectPath();
 
-		uint32 Count = AssetIdCounts.FindRef(RequiredItemId);
-		for (uint32 i = 0; i < RequiredQuantity; i++)
+		int32 Count = AssetIdCounts.FindRef(RequiredItemId);
+		for (int32 i = 0; i < RequiredQuantity; i++)
 		{
 			WidgetOrderInfos.Add({i < Count, IconPath});
 		}
 
-		if (uint32* CountPtr = AssetIdCounts.Find(RequiredItemId))
+		if (int32* CountPtr = AssetIdCounts.Find(RequiredItemId))
 			*CountPtr -= FMath::Max(0, static_cast<int32>(FMath::Min(Count, RequiredQuantity)));
 	}
 
 	SpawnedWidget->UpdateOrderImages(WidgetOrderInfos);
+}
+
+void APZ_DeliveryNode::OnPickupItemConfirmed(APZ_ItemDummy* ItemDummy)
+{
+	PickupZoneItems.Add(ItemDummy);	
+	RefreshUI();
 }
 
 void APZ_DeliveryNode::OnAssetsLoaded()

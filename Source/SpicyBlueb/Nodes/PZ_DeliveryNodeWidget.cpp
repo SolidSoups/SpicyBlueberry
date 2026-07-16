@@ -12,17 +12,7 @@
 
 void UPZ_DeliveryNodeWidget::UpdateOrderImages(TArray<FPZ_WidgetOrderInfo>& Orders)
 {
-	OrderWrapBox->ClearChildren();			
-	
-	// Clear all icon resources
-	for (const TSharedPtr<FStreamableHandle>& Handle : IconLoadHandles)
-	{
-		if (Handle.IsValid())
-		{
-			Handle->CancelHandle();
-		}	
-	}
-	IconLoadHandles.Reset();
+	ClearState();
 	
 	// Construct a shit ton of images for every order required
 	for (const auto& Order : Orders)
@@ -49,7 +39,7 @@ void UPZ_DeliveryNodeWidget::UpdateOrderImages(TArray<FPZ_WidgetOrderInfo>& Orde
 						Image->SetBrushSize(IconSize);
 						if (IsFulfilled)
 						{
-							Image->SetBrushTintColor(FSlateColor(FColor::Green));	
+							Image->SetBrushTintColor(FSlateColor(FColor(255, 255, 255, 120)));	
 						}
 					}
 				}
@@ -58,17 +48,23 @@ void UPZ_DeliveryNodeWidget::UpdateOrderImages(TArray<FPZ_WidgetOrderInfo>& Orde
 	}
 }
 
+void UPZ_DeliveryNodeWidget::ClearState()
+{
+	OrderWrapBox->ClearChildren();
+	
+	// Clear all icon resources
+	for (const TSharedPtr<FStreamableHandle>& Handle : IconLoadHandles)
+	{
+		if (Handle.IsValid())
+		{
+			Handle->CancelHandle();
+		}	
+	}
+	IconLoadHandles.Reset();
+}
+
 void UPZ_DeliveryNodeWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
-	
-	// Clean up load handles
-	if (!IconLoadHandles.IsEmpty())
-	{
-		for (auto& Handle : IconLoadHandles)
-		{
-			Handle->CancelHandle();
-		}
-		IconLoadHandles.Reset();
-	}
+	ClearState();
 }

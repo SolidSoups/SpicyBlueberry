@@ -22,18 +22,15 @@ struct FPZ_WidgetOrderInfo
 	FSoftObjectPath IconPath;	
 };
 
-/**
- * 
- */
+/* A widget which displays orders required to fulfill. */
 UCLASS()
 class SPICYBLUEB_API UPZ_DeliveryNodeWidget : public UUserWidget
 {
-
-private:
 	GENERATED_BODY()
 
 public:
 	void UpdateOrderImages(TArray<FPZ_WidgetOrderInfo>& Orders);
+	void ClearState();
 	
 protected:
 	virtual void NativeDestruct() override;

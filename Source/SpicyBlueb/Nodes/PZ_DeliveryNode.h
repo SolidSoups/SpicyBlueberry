@@ -15,15 +15,15 @@ class UWidgetComponent;
 class UPZ_ItemDataAsset;
 class APZ_ItemDummy;
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FPZ_DeliveryNodeOrder
 {
 	GENERATED_BODY()
 	
-	UPROPERTY(EditAnywhere)	
-	uint32 RequiredQuantity = 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)	
+	int32 RequiredQuantity = 1;
 	
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FPrimaryAssetId RequiredItemId;
 };
 
@@ -34,6 +34,9 @@ class SPICYBLUEB_API APZ_DeliveryNode : public AActor, public IPZ_Interactable
 
 public:
 	APZ_DeliveryNode();
+	
+	UFUNCTION(BlueprintCallable, Category="Delivery Node")
+	void SetRequiredOrders(const TArray<FPZ_DeliveryNodeOrder>& InRequiredOrders);
 
 	UFUNCTION()
 	void OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
@@ -80,12 +83,15 @@ protected:
 private:
 	TMap<TWeakObjectPtr<APZ_ItemDummy>, FTimerHandle> AcceptOrderTimers;
 	
+	TArray<FPrimaryAssetId> ItemsFromPickupZone;
 	TArray<FPrimaryAssetId> LoadedAssetIds;
 	TMap<FPrimaryAssetId, TWeakObjectPtr<UPZ_ItemDataAsset>> LoadedItemAssets;
 	
 	void RefreshUI();
+	UFUNCTION()
+	void OnPickupItemConfirmed(APZ_ItemDummy* Apz_ItemDummy);
 	void LoadAllRequiredAssets();
-	void UnloadAllRequiredAssets();
+	void CleanUp();
 	
 	UFUNCTION()
 	void OnAssetsLoaded();
