@@ -25,6 +25,28 @@ struct FPZ_DeliveryNodeOrder
 	FPrimaryAssetId RequiredItemId;
 };
 
+// Internal struct to track progress of orders
+struct FPZ_DeliveryNodeOrderStatus
+{
+	FPZ_DeliveryNodeOrderStatus(int32 InRequiredQuantity, FPrimaryAssetId InRequiredItemId)
+		: RequiredQuantity(InRequiredQuantity), ItemId(InRequiredItemId){}
+	const int32 RequiredQuantity = 0;
+	const FPrimaryAssetId ItemId;
+	
+	// Returns true if same asset id and count could be incremented. Returns false if count is finished
+	bool TryAddToCount(FPrimaryAssetId AssetId)
+	{
+		if (ItemId != AssetId or ItemProgressCount >= RequiredQuantity)
+			return false;
+		
+		ItemProgressCount++;
+		return true;
+	}	
+	int32 GetProgressCount() const { return ItemProgressCount;}
+private:
+	int32 ItemProgressCount = 0;
+};
+
 UCLASS()
 class SPICYBLUEB_API APZ_DeliveryNode : public AActor, public IPZ_Interactable
 {
@@ -39,15 +61,10 @@ public:
 	UFUNCTION()
 	void OnPickupVolumeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
 	                                const FHitResult& SweepResult);
-	UFUNCTION()
-	void OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 	virtual void OnInteract(APZ_PlayerCharacter* Interactor) override;
 	virtual void OnInteractZoneEntered(APZ_PlayerCharacter* Interactor) override;
 	virtual void OnInteractZoneExited(APZ_PlayerCharacter* Interactor) override;
-
-	UPROPERTY()
-	TArray<TWeakObjectPtr<APZ_ItemDummy>> PickupZoneItems;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -59,7 +76,8 @@ protected:
 	float AcceptOrderDelay = 1.5f;
 	
 	UPROPERTY(EditDefaultsOnly)
-	TArray<FPZ_DeliveryNodeOrder> RequiredOrders;
+	TArray<FPZ_DeliveryNodeOrder> DefaultRequiredOrders;
+	TArray<FPZ_DeliveryNodeOrderStatus> RequiredOrders;
 	
 	// UI
 	

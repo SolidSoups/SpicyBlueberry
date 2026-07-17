@@ -17,34 +17,38 @@ void UPZ_DeliveryNodeWidget::UpdateOrderImages(TArray<FPZ_WidgetOrderInfo>& Orde
 	// Construct a shit ton of images for every order required
 	for (const auto& Order : Orders)
 	{
+		// Create new image and add to wrap box
 		TWeakObjectPtr<UImage> WeakIconImage = NewObject<UImage>(this);
 		if (UWrapBoxSlot* WrapBoxSlot = OrderWrapBox->AddChildToWrapBox(WeakIconImage.Get()))
 		{
 			WrapBoxSlot->SetPadding(OrderIconPadding);
 		}
 		
+		// Load the icon image
 		const FSoftObjectPath IconPath = Order.IconPath;
-		
-		FVector2D IconSize(OrderIconSize);
-		bool IsFulfilled = Order.IsFulfilled;
-		IconLoadHandles.Add(UAssetManager::Get().GetStreamableManager().RequestAsyncLoad(
-			IconPath,
-			FStreamableDelegate::CreateWeakLambda(this, [WeakIconImage, IconSize, IconPath, IsFulfilled]()
-			{
-				if (UImage* Image = WeakIconImage.Get())
+		if (IconPath.IsValid())
+		{
+			const FVector2D IconSize(OrderIconSize);
+			const bool IsFulfilled = Order.IsFulfilled;
+			IconLoadHandles.Add(UAssetManager::Get().GetStreamableManager().RequestAsyncLoad(
+				IconPath,
+				FStreamableDelegate::CreateWeakLambda(this, [WeakIconImage, IconSize, IconPath, IsFulfilled]()
 				{
-					if (UTexture2D* Texture = Cast<UTexture2D>(IconPath.ResolveObject()))
+					if (UImage* Image = WeakIconImage.Get())
 					{
-						Image->SetBrushFromTexture(Texture);
-						Image->SetBrushSize(IconSize);
-						if (IsFulfilled)
+						if (UTexture2D* Texture = Cast<UTexture2D>(IconPath.ResolveObject()))
 						{
-							Image->SetBrushTintColor(FSlateColor(FColor(255, 255, 255, 120)));	
+							Image->SetBrushFromTexture(Texture);
+							Image->SetBrushSize(IconSize);
+							if (IsFulfilled)
+							{
+								Image->SetBrushTintColor(FSlateColor(FColor(255, 255, 255, 120)));	
+							}
 						}
 					}
-				}
-			})
-		));
+				})
+			));
+		}
 	}
 }
 

@@ -28,7 +28,6 @@ APZ_DeliveryNode::APZ_DeliveryNode()
 	PickupVolume->SetSphereRadius(50.f);
 	PickupVolume->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
 	PickupVolume->OnComponentBeginOverlap.AddDynamic(this, &APZ_DeliveryNode::OnPickupVolumeBeginOverlap);
-	PickupVolume->OnComponentEndOverlap.AddDynamic(this, &APZ_DeliveryNode::OnPickupVolumeEndOverlap);
 
 	StatusWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("Widget Component"));
 	StatusWidget->SetupAttachment(RootComponent);
@@ -42,7 +41,7 @@ APZ_DeliveryNode::APZ_DeliveryNode()
 
 void APZ_DeliveryNode::SetRequiredOrders(const TArray<FPZ_DeliveryNodeOrder>& InRequiredOrders)
 {
-	RequiredOrders = InRequiredOrders;
+	DefaultRequiredOrders = InRequiredOrders;
 	CleanUp();
 	LoadAllRequiredAssets();
 }
@@ -53,7 +52,6 @@ void APZ_DeliveryNode::OnPickupVolumeBeginOverlap(UPrimitiveComponent* Overlappe
 {
 	if (auto* Dummy = Cast<APZ_ItemDummy>(OtherActor))
 	{
-		PickupZoneItems.AddUnique(Dummy);
 		GetWorldTimerManager().SetTimer(
 			AcceptOrderTimers.FindOrAdd(Dummy),
 			FTimerDelegate::CreateUObject(this, &APZ_DeliveryNode::OnPickupItemConfirmed, Dummy),
@@ -62,20 +60,6 @@ void APZ_DeliveryNode::OnPickupVolumeBeginOverlap(UPrimitiveComponent* Overlappe
 		);
 	}
 }
-
-void APZ_DeliveryNode::OnPickupVolumeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-                                                UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	if (auto* Dummy = Cast<APZ_ItemDummy>(OtherActor))
-	{
-		if (FTimerHandle* Handle = AcceptOrderTimers.Find(Dummy))
-		{
-			GetWorldTimerManager().ClearTimer(*Handle);
-			AcceptOrderTimers.Remove(Dummy);
-		}
-	}
-}
-
 
 void APZ_DeliveryNode::BeginPlay()
 {
@@ -87,22 +71,34 @@ void APZ_DeliveryNode::BeginPlay()
 		SpawnedWidget = Cast<UPZ_DeliveryNodeWidget>(StatusWidget->GetWidget());
 	}
 
-	if (!RequiredOrders.IsEmpty())
+	if (!DefaultRequiredOrders.IsEmpty())
+	{
+		// Transfer into array	
+		RequiredOrders.Reset();
+		for (const auto& [RequiredQuantity, RequiredAssetId] : DefaultRequiredOrders)
+		{
+			if (!ensureMsgf(RequiredAssetId.IsValid(), TEXT("Required asset is not valid!"))
+				or !ensureMsgf(RequiredQuantity > 0, TEXT("Required asset must have a count larger than 0")))
+				continue;
+			RequiredOrders.Add({RequiredQuantity, RequiredAssetId});
+		}
+
 		LoadAllRequiredAssets();
+	}
 }
 
 
 void APZ_DeliveryNode::LoadAllRequiredAssets()
 {
-	// batch all asset ids together and load them together
+	// batch all unique asset ids together and load them together
 	TArray<FPrimaryAssetId> AssetIdsToLoad;
-	for (int32 i = 0; i < RequiredOrders.Num(); i++)
+	for (const auto& Order : RequiredOrders)
 	{
-		AssetIdsToLoad.AddUnique(RequiredOrders[i].RequiredItemId);
+		AssetIdsToLoad.AddUnique(Order.ItemId);	
 	}
-	
-	ItemRequester.LoadBatch(GetWorld(), AssetIdsToLoad, 
-		FOnAssetBatchLoadedDelegate::CreateUObject(this, &APZ_DeliveryNode::OnAssetsLoaded));
+
+	ItemRequester.LoadBatch(GetWorld(), AssetIdsToLoad,
+	                        FOnAssetBatchLoadedDelegate::CreateUObject(this, &APZ_DeliveryNode::OnAssetsLoaded));
 }
 
 void APZ_DeliveryNode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -157,41 +153,30 @@ void APZ_DeliveryNode::OnAssetsLoaded(TArray<FPrimaryAssetId> LoadedAssetIds)
 	for (const FPrimaryAssetId& AssetId : LoadedAssetIds)
 	{
 		LoadedItemAssets.Add(AssetId, Cast<UPZ_ItemDataAsset>(
-			UAssetManager::Get().GetPrimaryAssetObject(AssetId)));
+			                     UAssetManager::Get().GetPrimaryAssetObject(AssetId)));
 	}
 	RefreshUI();
 }
 
 void APZ_DeliveryNode::RefreshUI()
 {
-	// Count up the totals for each asset id (there may be several of the same item in the zone)
-	TMap<FPrimaryAssetId, int32> AssetIdCounts;
-	for (const TWeakObjectPtr<APZ_ItemDummy>& ItemDummy : PickupZoneItems)
-	{
-		if (!ItemDummy.IsValid()) continue;
-		AssetIdCounts.FindOrAdd(ItemDummy->ItemId)++;
-	}
-
-
 	// Build the data for the UI to consume	
 	TArray<FPZ_WidgetOrderInfo> WidgetOrderInfos;
-	for (const auto& [RequiredQuantity, RequiredItemId] : RequiredOrders)
+	for (const auto& Order : RequiredOrders)
 	{
-		if (!RequiredItemId.IsValid() or RequiredQuantity <= 0)
+		if (!Order.ItemId.IsValid()) // something weird happened
 			continue;
 
 		FSoftObjectPath IconPath;
-		if (auto ItemAsset = LoadedItemAssets.FindRef(RequiredItemId); ItemAsset.IsValid())
+		if (auto ItemAsset = LoadedItemAssets.FindRef(Order.ItemId); ItemAsset.IsValid())
 			IconPath = ItemAsset->Icon.ToSoftObjectPath();
-
-		int32 Count = AssetIdCounts.FindRef(RequiredItemId);
-		for (int32 i = 0; i < RequiredQuantity; i++)
+		
+		// We add ProgressCount fulfilled orders, rest are unfulfilled
+		int32 ProgressCount = Order.GetProgressCount();
+		for (int32 i = 0; i < Order.RequiredQuantity; i++)
 		{
-			WidgetOrderInfos.Add({i < Count, IconPath});
+			WidgetOrderInfos.Add({i < ProgressCount, IconPath});
 		}
-
-		if (int32* CountPtr = AssetIdCounts.Find(RequiredItemId))
-			*CountPtr -= FMath::Max(0, static_cast<int32>(FMath::Min(Count, RequiredQuantity)));
 	}
 
 	SpawnedWidget->UpdateOrderImages(WidgetOrderInfos);
@@ -199,6 +184,24 @@ void APZ_DeliveryNode::RefreshUI()
 
 void APZ_DeliveryNode::OnPickupItemConfirmed(APZ_ItemDummy* ItemDummy)
 {
-	PickupZoneItems.Add(ItemDummy);	
+	if (ItemDummy)
+	{
+		// Check if this item can progress any of our required orders
+		for (auto& RequiredOrder : RequiredOrders)
+		{
+			if (RequiredOrder.TryAddToCount(ItemDummy->ItemId))
+			{
+				ItemDummy->Destroy();
+				break;
+			}
+		}
+
+		// Clean up timer handle
+		if (FTimerHandle* Handle = AcceptOrderTimers.Find(ItemDummy))
+		{
+			GetWorldTimerManager().ClearTimer(*Handle);
+			AcceptOrderTimers.Remove(ItemDummy);
+		}
+	}
 	RefreshUI();
 }
