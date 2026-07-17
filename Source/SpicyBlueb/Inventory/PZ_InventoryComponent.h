@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "SpicyBlueb/Core/Subsystems/PZ_ItemAssetRequester.h"
 #include "PZ_InventoryComponent.generated.h"
 
 class UPZ_ItemDataAsset;
@@ -31,6 +32,7 @@ public:
 	UPZ_InventoryComponent();
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	/* Select a slot in the inventory */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -53,6 +55,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category="Inventory")
 	int32 FindSlotWithItem(FPrimaryAssetId ItemId) const;
+	int32 GetFirstEmptySlot();
 
 	/* Adds an item to the first unoccupied slot */
 	UFUNCTION(BlueprintCallable, Category="Inventory")
@@ -74,7 +77,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 MaxItemSlots = 2; // default here only applies if settings not found
 	
-	void OnItemLoaded(const int32 Slot, FPrimaryAssetId AssetId);
+	void OnItemLoaded(FPrimaryAssetId AssetId, int32 Slot);
+	FPZ_ItemAssetRequester AssetRequester;
 
 	UPROPERTY(ReplicatedUsing=OnRep_Items)
 	TArray<FPZ_InventorySlot> Items;

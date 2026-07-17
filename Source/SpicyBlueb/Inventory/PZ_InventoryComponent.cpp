@@ -45,6 +45,17 @@ void UPZ_InventoryComponent::BeginPlay()
 	});
 }
 
+void UPZ_InventoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	
+	AssetRequester.ReleaseAll(GetWorld());
+	Items.Reset();
+	ResolvedItemsData.Reset();
+	PreviousAssetIds.Reset();
+	IsSlotLoading.Reset();
+}
+
 void UPZ_InventoryComponent::SetSelectedSlot(int32 Slot)
 {
 	if (!Items.IsValidIndex(Slot))
@@ -88,16 +99,9 @@ int32 UPZ_InventoryComponent::FindSlotWithItem(FPrimaryAssetId ItemId) const
 	return INDEX_NONE;
 }
 
-bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
+int32 UPZ_InventoryComponent::GetFirstEmptySlot()
 {
-	if (!ItemId.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("ItemId is invalid"));
-		return false;
-	}
-
-	// find the first unoccupied slot
-	int32 FirstSlot = -1;
+	int32 FirstSlot = INDEX_NONE;
 	for (int32 i = 0; i < Items.Num(); i++)
 	{
 		if (!Items.IsValidIndex(i) or IsSlotLoading[i] or Items[i].AssetId.IsValid())
@@ -106,15 +110,26 @@ bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
 		FirstSlot = i;
 		break;
 	}
-	if (FirstSlot <= -1)
+	return FirstSlot;
+}
+
+bool UPZ_InventoryComponent::AddItem(FPrimaryAssetId ItemId)
+{
+	if (!ItemId.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("ItemId is invalid"));
+		return false;
+	}
+
+	int32 FirstSlot = GetFirstEmptySlot();
+	if (FirstSlot == INDEX_NONE)
 		return false;
 
 	IsSlotLoading[FirstSlot] = true;
-	UAssetManager::Get().LoadPrimaryAsset(
-		ItemId,
-		TArray<FName>(),
-		FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, FirstSlot, ItemId));
-
+	AssetRequester.Load(
+		GetWorld(),
+		ItemId, 
+		FOnAssetLoadedDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, FirstSlot));
 	return true;
 }
 
@@ -149,7 +164,7 @@ FPrimaryAssetId UPZ_InventoryComponent::TryPopItemSlot(int32 Slot)
 	return AssetId;
 }
 
-void UPZ_InventoryComponent::OnItemLoaded(const int32 Slot, const FPrimaryAssetId AssetId)
+void UPZ_InventoryComponent::OnItemLoaded(const FPrimaryAssetId AssetId, int32 Slot)
 {
 	if (!IsSlotLoading[Slot]) return;
 
@@ -175,7 +190,7 @@ void UPZ_InventoryComponent::DeleteSlot(int32 Slot)
 	if (IsSlotLoading[Slot] or !Items[Slot].AssetId.IsValid())
 		return;
 
-	UAssetManager::Get().UnloadPrimaryAsset(Items[Slot].AssetId);
+	AssetRequester.Release(GetWorld(), Items[Slot].AssetId);
 
 	Items[Slot].AssetId = FPrimaryAssetId{};
 	ResolvedItemsData[Slot] = nullptr;
@@ -197,21 +212,22 @@ void UPZ_InventoryComponent::OnRep_Items()
 		const FPrimaryAssetId OldAssetId = PreviousAssetIds[i];
 		PreviousAssetIds[i] = Items[i].AssetId;
 
+		// Unloading
 		if (OldAssetId.IsValid())
 		{
-			UAssetManager::Get().UnloadPrimaryAsset(OldAssetId);
+			AssetRequester.Release(GetWorld(), OldAssetId);
 			ResolvedItemsData[i] = nullptr;
 			OnItemRemovedDelegate.Broadcast(i);
 		}
 
+		// Reloading
 		if (Items[i].AssetId.IsValid())
 		{
 			IsSlotLoading[i] = true;
-			UAssetManager::Get().LoadPrimaryAsset(
+			AssetRequester.Load(
+				GetWorld(),
 				Items[i].AssetId,
-				TArray<FName>(),
-				FStreamableDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, i, Items[i].AssetId)
-			);
+				FOnAssetLoadedDelegate::CreateUObject(this, &UPZ_InventoryComponent::OnItemLoaded, i));
 		}
 	}
 }
